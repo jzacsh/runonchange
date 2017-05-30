@@ -78,7 +78,7 @@ func parseCli() (runDirective, error) {
 		directive.WatchTarget = watchTarget
 
 		if len(args) > 2 {
-			invertMatch, e := regexp.Compile(args[1])
+			invertMatch, e := regexp.Compile(args[2])
 			if e != nil {
 				return runDirective{}, &parseError{
 					Stage: psInvertMatch,

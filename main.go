@@ -55,7 +55,7 @@ func (c *runDirective) debugStr() string {
   cmd.BuildCmd:           "%s"
   cmd.WatchTarget.Name(): "%s"
   cmd.InvertMatch:        "%s"
-  `, c.BuildCmd, watchTarg, invertMatch) // TODO(zacsh) remove
+  `, c.BuildCmd, watchTarg, invertMatch)
 }
 
 func main() {
@@ -67,5 +67,5 @@ func main() {
 	fmt.Fprintf(
 		os.Stderr,
 		"[dbg] not yet implemented, but here's what you asked for: %s\n",
-		cmd.debugStr())
+		cmd.debugStr()) // TODO(zacsh) remove
 }

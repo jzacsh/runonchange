@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"regexp"
+)
 
 type parseStage int
 
@@ -16,21 +20,74 @@ type parseError struct {
 	Message string
 }
 
-func (e *parseError) Error() string {
-	var stageStr string
-	switch e.Stage {
+func (e parseError) Error() string {
+	return fmt.Sprintf("parse: %s: %s", parseStageStr(e.Stage), e.Message)
+}
+
+func parseStageStr(stage parseStage) string {
+	switch stage {
 	case psNumArgs:
-		stageStr = "arg count"
+		return "arg count"
 	case psCommand:
-		stageStr = "COMMAND"
+		return "COMMAND"
 	case psWatchTarget:
-		stageStr = "DIR_TO_WATCH"
+		return "DIR_TO_WATCH"
 	case psInvertMatch:
-		stageStr = "FILE_IGNORE_PATTERN"
+		return "FILE_IGNORE_PATTERN"
 	}
-	return fmt.Sprintf("parse: %s: %s", stageStr, e.Message)
+	panic(fmt.Sprintf("unexpected parseStage found, '%d'", int(stage)))
+}
+
+func expectedNonZero(stage parseStage) parseError {
+	return parseError{
+		Stage:   stage,
+		Message: fmt.Sprintf("expected non-zero %s as argument", parseStageStr(stage)),
+	}
 }
 
 func parseCli() (runDirective, error) {
-	return runDirective{}, &parseError{Stage: psCommand, Message: "Not yet implemented"}
+	args := os.Args[1:]
+	if len(args) < 1 {
+		return runDirective{}, &parseError{
+			Stage:   psNumArgs,
+			Message: "at least COMMAND argument needed",
+		}
+	}
+
+	buildCmd := args[0]
+	if len(buildCmd) < 1 {
+		return runDirective{}, expectedNonZero(psCommand)
+	}
+
+	directive := runDirective{BuildCmd: buildCmd}
+	if len(args) > 1 {
+		watchTargetPath := args[1]
+		if len(watchTargetPath) < 1 {
+			return runDirective{}, expectedNonZero(psWatchTarget)
+		}
+		watchTarget, e := os.Stat(watchTargetPath)
+		if e != nil {
+			return runDirective{}, parseError{Stage: psWatchTarget, Message: e.Error()}
+		}
+		if !watchTarget.IsDir() {
+			return runDirective{}, parseError{
+				Stage:   psWatchTarget,
+				Message: fmt.Sprintf("%s must be a directory", parseStageStr(psWatchTarget)),
+			}
+		}
+		directive.WatchTarget = watchTarget
+
+		if len(args) > 2 {
+			invertMatch, e := regexp.Compile(args[1])
+			if e != nil {
+				return runDirective{}, &parseError{
+					Stage:   psInvertMatch,
+					Message: fmt.Sprintf("failed to compile regular expression: %s", e),
+				}
+			}
+			directive.InvertMatch = invertMatch
+		}
+	}
+
+	return directive, nil
 }

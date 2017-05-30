@@ -15,7 +15,7 @@ const (
 type runDirective struct {
 	BuildCmd    string
 	WatchTarget os.FileInfo
-	InvertMatch regexp.Regexp
+	InvertMatch *regexp.Regexp
 }
 
 func usage() string {
@@ -41,15 +41,31 @@ func die(reason exitReason, e error) {
 	os.Exit(int(reason))
 }
 
+func (c *runDirective) debugStr() string {
+	watchTarg := "n/a"
+	if c.WatchTarget != nil {
+		watchTarg = c.WatchTarget.Name()
+	}
+
+	invertMatch := "n/a"
+	if c.InvertMatch != nil {
+		invertMatch = c.InvertMatch.String()
+	}
+	return fmt.Sprintf(`
+  cmd.BuildCmd:           "%s"
+  cmd.WatchTarget.Name(): "%s"
+  cmd.InvertMatch:        "%s"
+  `, c.BuildCmd, watchTarg, invertMatch) // TODO(zacsh) remove
+}
+
 func main() {
 	cmd, e := parseCli()
 	if e != nil {
 		die(exCommandline, e)
 	}
 
-	fmt.Fprintf(os.Stderr, `[dbg] not yet implemented, but here's what you asked for:
-  cmd.BuildCmd:\t"%s"
-  cmd.WatchTarget.Name():\t"%s"
-  cmd.InvertMatch:\t"%s"
-	`, cmd.BuildCmd, cmd.WatchTarget.Name(), cmd.InvertMatch) // TODO(zacsh) remove
+	fmt.Fprintf(
+		os.Stderr,
+		"[dbg] not yet implemented, but here's what you asked for: %s\n",
+		cmd.debugStr())
 }

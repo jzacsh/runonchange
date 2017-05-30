@@ -1,5 +1,5 @@
 = Run Command On Changes
-:frombash: https://github.com/jzacsh/bin/tree/TODO/share/runonchanges
+:frombash: https://github.com/jzacsh/bin/blob/f38719fdc6795/share/runonchange
 
 Runs an arbitrary command when some filesystem even changes with given filepath(s)
 

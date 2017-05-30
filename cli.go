@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 )
 
@@ -54,12 +55,31 @@ func parseCli() (runDirective, error) {
 		}
 	}
 
-	buildCmd := args[0]
-	if len(buildCmd) < 1 {
+	cmd := args[0]
+	if len(cmd) < 1 {
 		return runDirective{}, expectedNonZero(psCommand)
 	}
 
-	directive := runDirective{BuildCmd: buildCmd}
+	directive := runDirective{Command: cmd}
+
+	shell := os.Getenv("SHELL")
+	if len(shell) < 1 {
+		return runDirective{}, &parseError{
+			Stage:   psCommand,
+			Message: "$SHELL env variable required",
+		}
+	}
+
+	if _, e := os.Stat(shell); e != nil {
+		// we expect shell to be a path name, per:
+		//   http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08
+		return runDirective{}, &parseError{
+			Stage:   psCommand,
+			Message: fmt.Sprintf("$SHELL: %s", e),
+		}
+	}
+	directive.Shell = shell
+
 	if len(args) > 1 {
 		watchTargetPath := args[1]
 		if len(watchTargetPath) < 1 {
@@ -72,10 +92,17 @@ func parseCli() (runDirective, error) {
 		if !watchTarget.IsDir() {
 			return runDirective{}, parseError{
 				Stage:   psWatchTarget,
-				Message: fmt.Sprintf("%s must be a directory", parseStageStr(psWatchTarget)),
+				Message: fmt.Sprintf("must be a directory"),
 			}
 		}
-		directive.WatchTarget = watchTarget
+		watchPath, e := filepath.Abs(watchTargetPath)
+		if e != nil {
+			return runDirective{}, parseError{
+				Stage:   psWatchTarget,
+				Message: fmt.Sprintf("expanding path: %s", e),
+			}
+		}
+		directive.WatchTarget = watchPath
 
 		if len(args) > 2 {
 			invertMatch, e := regexp.Compile(args[2])

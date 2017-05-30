@@ -3,4 +3,4 @@
 
 Runs an arbitrary command when some filesystem even changes with given filepath(s)
 
-NOTE: this is a port [from bash]{frombash} to Golang.
+NOTE: this is a port {frombash}[from bash] to Golang.

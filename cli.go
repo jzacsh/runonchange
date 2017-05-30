@@ -81,9 +81,8 @@ func parseCli() (runDirective, error) {
 			invertMatch, e := regexp.Compile(args[2])
 			if e != nil {
 				return runDirective{}, &parseError{
-					Stage: psInvertMatch,
-					Message: fmt.Sprintf(
-						"reading %s pattern: %s", parseStageStr(psInvertMatch), e),
+					Stage:   psInvertMatch,
+					Message: fmt.Sprintf("pattern: %s", e),
 				}
 			}
 			directive.InvertMatch = invertMatch

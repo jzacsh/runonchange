@@ -104,7 +104,7 @@ func (c *runDirective) debugStr() string {
 	}
 
 	return fmt.Sprintf(`
-  run.Command:           "%s"
+  run.Command:            "%s"
   run.WatchTarget.Name(): "%s"
   run.InvertMatch:        "%s"
   run.Shell:              "%s"

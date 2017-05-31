@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sync"
+	"time"
 )
 
 type featureFlag int
@@ -43,9 +45,15 @@ type runDirective struct {
 	WatchTarget string
 	InvertMatch *regexp.Regexp
 	Features    map[featureFlag]bool
+	LastRun     time.Time
+	LastRunLk   sync.RWMutex
 }
 
 func (run *runDirective) Exec(msgStdout bool) error {
+	run.LastRunLk.Lock()
+	run.LastRun = time.Now()
+	run.LastRunLk.Unlock()
+
 	if msgStdout {
 		fmt.Printf("RUNNING `%s`\n", run.Command)
 	}
@@ -57,6 +65,14 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+func (run *runDirective) hasRunInlast(since time.Duration) bool {
+	run.LastRunLk.RLock()
+	last := run.LastRun
+	run.LastRunLk.RUnlock()
+
+	return time.Since(last) < since
 }
 
 func usage() string {
@@ -128,8 +144,6 @@ func main() {
 
 	fmt.Printf("Watching `%s`\n", run.WatchTarget)
 
-	run.Features[flgDebugOutput] = true // TODO(zacsh) remove
-
 	if run.Features[flgDebugOutput] {
 		fmt.Fprintf(
 			os.Stderr,
@@ -144,18 +158,22 @@ func main() {
 		for {
 			select {
 			case e := <-watcher.Events:
+				if run.Features[flgDebugOutput] {
+					fmt.Fprintf(os.Stderr, "[debug] [%s] %s\n", e.Op.String(), e.Name)
+				}
+
 				if run.Features[flgAutoIgnore] {
 					if magicFileRegexp.MatchString(filepath.Base(e.Name)) {
 						continue
 					}
 				}
 
-				// TODO(zacsh) throttle events as original version of `runonchange`
-				// does; ie: https://github.com/jzacsh/bin/blob/f38719fdc6795/share/runonchange#L78-L88
-				if run.Features[flgDebugOutput] {
-					fmt.Fprintf(os.Stderr, "[debug] [%s] %s\n", e.Op.String(), e.Name)
+				if run.hasRunInlast(2 * time.Second) {
+					fmt.Fprintf(os.Stderr, ".")
+					continue
 				}
 
+				fmt.Fprintf(os.Stderr, "\n")
 				run.Exec(true /*msgStdout*/)
 			case err := <-watcher.Errors:
 				die(exFsevent, err)

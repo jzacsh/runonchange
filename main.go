@@ -164,8 +164,7 @@ func main() {
 		}
 	}()
 
-	err := watcher.Add(run.WatchTarget)
-	if err != nil {
+	if err := watcher.Add(run.WatchTarget); err != nil {
 		die(exWatcher, e)
 	}
 	<-done // hang main

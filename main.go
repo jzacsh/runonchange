@@ -133,8 +133,7 @@ func main() {
 	if run.Features[flgDebugOutput] {
 		fmt.Fprintf(
 			os.Stderr,
-			"[debug] not yet implemented, but here's what you asked for, $0='%s': %s\n",
-			os.Getenv("SHELL"),
+			"[debug] not yet implemented, but here's what you asked for:\n%s\n",
 			run.debugStr())
 	}
 

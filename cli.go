@@ -61,6 +61,8 @@ func parseCli() (runDirective, error) {
 	}
 
 	directive := runDirective{Command: cmd}
+	directive.Features = make(map[featureFlag]bool)
+	directive.Features[flgAutoIgnore] = true // TODO encode as "default" somewhere
 
 	shell := os.Getenv("SHELL")
 	if len(shell) < 1 {

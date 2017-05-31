@@ -5,8 +5,26 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 )
+
+type featureFlag int
+
+const (
+	flgAutoIgnore featureFlag = 1 + iota
+	// Particularly useful for VIM flury of events, see:
+	//   https://stackoverflow.com/q/10300835/287374
+)
+
+func (flg featureFlag) String() string {
+	switch flg {
+	case flgAutoIgnore:
+		return "flgAutoIgnore"
+	default:
+		panic(fmt.Sprintf("unexpected flag, '%d'", int(flg)))
+	}
+}
 
 type exitReason int
 
@@ -21,6 +39,7 @@ type runDirective struct {
 	Command     string
 	WatchTarget string
 	InvertMatch *regexp.Regexp
+	Features    map[featureFlag]bool
 }
 
 func usage() string {
@@ -60,15 +79,30 @@ func (c *runDirective) debugStr() string {
 	if c.InvertMatch != nil {
 		invertMatch = c.InvertMatch.String()
 	}
+
+	var features string
+	for k, v := range c.Features {
+		if v {
+			var sep string
+			if len(features) > 0 {
+				sep = ", "
+			}
+			features = fmt.Sprintf("%s%s%s", features, sep, k.String())
+		}
+	}
+
 	return fmt.Sprintf(`
   run.Command:           "%s"
   run.WatchTarget.Name(): "%s"
   run.InvertMatch:        "%s"
   run.Shell:              "%s"
-  `, c.Command, watchTarg, invertMatch, c.Shell)
+  run.Features:           %s
+  `, c.Command, watchTarg, invertMatch, c.Shell, features)
 }
 
 func main() {
+	magicFileRegexp := regexp.MustCompile(`^(\.\w.*sw[a-z]|4913)$`)
+
 	run, e := parseCli()
 	if e != nil {
 		die(exCommandline, e)
@@ -92,7 +126,13 @@ func main() {
 	go func() {
 		for {
 			select {
-			case <-watcher.Events:
+			case e := <-watcher.Events:
+				if run.Features[flgAutoIgnore] {
+					if magicFileRegexp.MatchString(filepath.Base(e.Name)) {
+						continue
+					}
+				}
+
 				// TODO(zacsh) find out a shell-agnostic way to run comands (eg: *bash*
 				// specifically takes a "-c" flag)
 

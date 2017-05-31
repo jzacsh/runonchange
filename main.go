@@ -15,12 +15,15 @@ const (
 	flgAutoIgnore featureFlag = 1 + iota
 	// Particularly useful for VIM flury of events, see:
 	//   https://stackoverflow.com/q/10300835/287374
+	flgDebugOutput
 )
 
 func (flg featureFlag) String() string {
 	switch flg {
 	case flgAutoIgnore:
 		return "flgAutoIgnore"
+	case flgDebugOutput:
+		return "flgDebugOutput"
 	default:
 		panic(fmt.Sprintf("unexpected flag, '%d'", int(flg)))
 	}
@@ -40,6 +43,20 @@ type runDirective struct {
 	WatchTarget string
 	InvertMatch *regexp.Regexp
 	Features    map[featureFlag]bool
+}
+
+func (run *runDirective) Exec(msgStdout bool) error {
+	if msgStdout {
+		fmt.Printf("RUNNING `%s`\n", run.Command)
+	}
+
+	// TODO(zacsh) find out a shell-agnostic way to run comands (eg: *bash*
+	// specifically takes a "-c" flag)
+	cmd := exec.Command(run.Shell, "-c", run.Command)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func usage() string {
@@ -70,11 +87,6 @@ func die(reason exitReason, e error) {
 }
 
 func (c *runDirective) debugStr() string {
-	watchTarg := "n/a"
-	if len(c.WatchTarget) > 0 {
-		watchTarg = c.WatchTarget
-	}
-
 	invertMatch := "n/a"
 	if c.InvertMatch != nil {
 		invertMatch = c.InvertMatch.String()
@@ -97,7 +109,7 @@ func (c *runDirective) debugStr() string {
   run.InvertMatch:        "%s"
   run.Shell:              "%s"
   run.Features:           %s
-  `, c.Command, watchTarg, invertMatch, c.Shell, features)
+  `, c.Command, c.WatchTarget, invertMatch, c.Shell, features)
 }
 
 func main() {
@@ -114,13 +126,19 @@ func main() {
 	}
 	defer watcher.Close()
 
-	fmt.Fprintf(
-		os.Stderr,
-		"[debug] not yet implemented, but here's what you asked for, $0='%s': %s\n",
-		os.Getenv("SHELL"),
-		run.debugStr()) // TODO(zacsh) remove
+	fmt.Printf("Watching `%s`\n", run.WatchTarget)
 
-	// TODO(zacsh) run command once, while waiting for events
+	run.Features[flgDebugOutput] = true // TODO(zacsh) remove
+
+	if run.Features[flgDebugOutput] {
+		fmt.Fprintf(
+			os.Stderr,
+			"[debug] not yet implemented, but here's what you asked for, $0='%s': %s\n",
+			os.Getenv("SHELL"),
+			run.debugStr())
+	}
+
+	run.Exec(true /*msgStdout*/)
 
 	done := make(chan bool)
 	go func() {
@@ -133,15 +151,13 @@ func main() {
 					}
 				}
 
-				// TODO(zacsh) find out a shell-agnostic way to run comands (eg: *bash*
-				// specifically takes a "-c" flag)
-
 				// TODO(zacsh) throttle events as original version of `runonchange`
 				// does; ie: https://github.com/jzacsh/bin/blob/f38719fdc6795/share/runonchange#L78-L88
-				cmd := exec.Command(run.Shell, "-c", run.Command)
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				cmd.Run()
+				if run.Features[flgDebugOutput] {
+					fmt.Fprintf(os.Stderr, "[debug] [%s] %s\n", e.Op.String(), e.Name)
+				}
+
+				run.Exec(true /*msgStdout*/)
 			case err := <-watcher.Errors:
 				die(exFsevent, err)
 			}

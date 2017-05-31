@@ -3,4 +3,9 @@
 
 Runs an arbitrary command when some filesystem even changes with given filepath(s)
 
+.installation
+----
+$ go get github.com/jzacsh/runonchange
+----
+
 NOTE: this is a port {frombash}[from bash] to Golang.

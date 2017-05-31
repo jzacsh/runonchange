@@ -80,9 +80,9 @@ func usage() string {
   Usage:  COMMAND  [DIR_TO_WATCH  [FILE_IGNORE_PATTERN]]
 
   DIR_TO_WATCH defaults to the current working directory.
-  FILE_IGNORE_PATTERN If provided, is used to match against the exact file whose
-    event has been captured. If FILE_IGNORE_PATTERN expression matches said
-    file, COMMAND will not be run.
+  FILE_IGNORE_PATTERN If provided, is used to match against the basename of the
+    exact file whose event has been captured. If FILE_IGNORE_PATTERN expression
+    matches said file, COMMAND will not be run.
     Valid arguments are those accepted by https://golang.org/pkg/regexp/#Compile
 `)
 }
@@ -171,6 +171,11 @@ func main() {
 					if magicFileRegexp.MatchString(filepath.Base(e.Name)) {
 						continue
 					}
+				}
+
+				if run.InvertMatch != nil &&
+					run.InvertMatch.MatchString(filepath.Base(e.Name)) {
+					continue
 				}
 
 				if run.hasRunInlast(2 * time.Second) {

@@ -60,7 +60,10 @@ func parseCli() (runDirective, error) {
 		return runDirective{}, expectedNonZero(psCommand)
 	}
 
-	directive := runDirective{Command: cmd}
+	directive := runDirective{
+		Command:     cmd,
+		WatchTarget: "./",
+	}
 	directive.Features = make(map[featureFlag]bool)
 	directive.Features[flgAutoIgnore] = true // TODO encode as "default" somewhere
 

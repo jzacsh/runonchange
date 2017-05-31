@@ -131,9 +131,14 @@ func (c *runDirective) debugStr() string {
 func main() {
 	magicFileRegexp := regexp.MustCompile(`^(\.\w.*sw[a-z]|4913)$`)
 
-	run, e := parseCli()
-	if e != nil {
-		die(exCommandline, e)
+	run, perr := parseCli()
+	if perr != nil {
+		if perr.Stage == psHelp {
+			fmt.Printf(usage())
+			os.Exit(0)
+		}
+
+		die(exCommandline, perr)
 	}
 
 	watcher, e := fsnotify.NewWatcher()

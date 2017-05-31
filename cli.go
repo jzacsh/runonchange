@@ -11,6 +11,7 @@ type parseStage int
 
 const (
 	psNumArgs parseStage = iota
+	psHelp
 	psCommand
 	psWatchTarget
 	psInvertMatch
@@ -29,6 +30,8 @@ func parseStageStr(stage parseStage) string {
 	switch stage {
 	case psNumArgs:
 		return "arg count"
+	case psHelp:
+		return "help"
 	case psCommand:
 		return "COMMAND"
 	case psWatchTarget:
@@ -39,14 +42,14 @@ func parseStageStr(stage parseStage) string {
 	panic(fmt.Sprintf("unexpected parseStage found, '%d'", int(stage)))
 }
 
-func expectedNonZero(stage parseStage) parseError {
-	return parseError{
+func expectedNonZero(stage parseStage) *parseError {
+	return &parseError{
 		Stage:   stage,
 		Message: fmt.Sprintf("expected non-zero %s as argument", parseStageStr(stage)),
 	}
 }
 
-func parseCli() (runDirective, error) {
+func parseCli() (runDirective, *parseError) {
 	args := os.Args[1:]
 	if len(args) < 1 {
 		return runDirective{}, &parseError{
@@ -58,6 +61,10 @@ func parseCli() (runDirective, error) {
 	cmd := args[0]
 	if len(cmd) < 1 {
 		return runDirective{}, expectedNonZero(psCommand)
+	}
+
+	if cmd == "-h" || cmd == "h" || cmd == "--help" || cmd == "help" {
+		return runDirective{}, &parseError{Stage: psHelp}
 	}
 
 	directive := runDirective{
@@ -92,17 +99,17 @@ func parseCli() (runDirective, error) {
 		}
 		watchTarget, e := os.Stat(watchTargetPath)
 		if e != nil {
-			return runDirective{}, parseError{Stage: psWatchTarget, Message: e.Error()}
+			return runDirective{}, &parseError{Stage: psWatchTarget, Message: e.Error()}
 		}
 		if !watchTarget.IsDir() {
-			return runDirective{}, parseError{
+			return runDirective{}, &parseError{
 				Stage:   psWatchTarget,
 				Message: fmt.Sprintf("must be a directory"),
 			}
 		}
 		watchPath, e := filepath.Abs(watchTargetPath)
 		if e != nil {
-			return runDirective{}, parseError{
+			return runDirective{}, &parseError{
 				Stage:   psWatchTarget,
 				Message: fmt.Sprintf("expanding path: %s", e),
 			}

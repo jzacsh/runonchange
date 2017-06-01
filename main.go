@@ -51,10 +51,6 @@ type runDirective struct {
 }
 
 func (run *runDirective) Exec(msgStdout bool) error {
-	run.LastRunLk.Lock()
-	run.LastRun = time.Now()
-	run.LastRunLk.Unlock()
-
 	if msgStdout {
 		fmt.Printf("%s\t: `%s`\n",
 			color.YellowString("running"),
@@ -69,6 +65,7 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	cmd.Stderr = os.Stderr
 
 	runError := cmd.Run()
+
 	if msgStdout {
 		if runError == nil {
 			fmt.Printf("%s\n", color.YellowString("done"))
@@ -81,12 +78,8 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	return runError
 }
 
-func (run *runDirective) hasRunInlast(since time.Duration) bool {
-	run.LastRunLk.RLock()
-	last := run.LastRun
-	run.LastRunLk.RUnlock()
-
-	return time.Since(last) < since
+func (run *runDirective) unsafeHasRunSince(since time.Duration) bool {
+	return time.Since(run.LastRun) < since
 }
 
 func usage() string {
@@ -192,13 +185,17 @@ func main() {
 					continue
 				}
 
-				if run.hasRunInlast(2 * time.Second) {
+				run.LastRunLk.Unlock()
+				if run.unsafeHasRunSince(2 * time.Second) {
+					run.LastRunLk.RUnlock()
 					fmt.Fprintf(os.Stderr, ".")
 					continue
 				}
 
 				fmt.Fprintf(os.Stderr, "\n")
 				run.Exec(true /*msgStdout*/)
+				run.LastRun = time.Now()
+				run.LastRunLk.Lock()
 			case err := <-watcher.Errors:
 				die(exFsevent, err)
 			}

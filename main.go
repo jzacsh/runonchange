@@ -56,9 +56,9 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	run.LastRunLk.Unlock()
 
 	if msgStdout {
-		fmt.Printf("%s `%s`\n",
-			color.New(color.Bold, color.FgYellow).Sprintf("RUNNING"),
-			color.New(color.Bold, color.FgRed).Sprintf(run.Command))
+		fmt.Printf("%s\t: `%s`\n",
+			color.YellowString("running"),
+			color.HiRedString(run.Command))
 	}
 
 	// TODO(zacsh) find out a shell-agnostic way to run comands (eg: *bash*

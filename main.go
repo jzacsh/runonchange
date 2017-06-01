@@ -147,6 +147,7 @@ func main() {
 
 		die(exCommandline, perr)
 	}
+	run.LastRunLk.Lock()
 
 	watcher, e := fsnotify.NewWatcher()
 	if e != nil {

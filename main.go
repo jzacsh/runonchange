@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/fsnotify/fsnotify"
 	"os"
 	"os/exec"
@@ -55,7 +56,9 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	run.LastRunLk.Unlock()
 
 	if msgStdout {
-		fmt.Printf("RUNNING `%s`\n", run.Command)
+		fmt.Printf("%s `%s`\n",
+			color.New(color.Bold, color.FgYellow).Sprintf("RUNNING"),
+			color.New(color.Bold, color.FgRed).Sprintf(run.Command))
 	}
 
 	// TODO(zacsh) find out a shell-agnostic way to run comands (eg: *bash*

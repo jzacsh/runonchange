@@ -67,7 +67,18 @@ func (run *runDirective) Exec(msgStdout bool) error {
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+
+	runError := cmd.Run()
+	if msgStdout {
+		if runError == nil {
+			fmt.Printf("%s\n", color.YellowString("done"))
+		} else {
+			fmt.Printf("%s\t:  %s\n\n",
+				color.YellowString("done"),
+				color.New(color.Bold, color.FgRed).Sprintf(runError.Error()))
+		}
+	}
+	return runError
 }
 
 func (run *runDirective) hasRunInlast(since time.Duration) bool {

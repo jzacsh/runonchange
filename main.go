@@ -187,7 +187,7 @@ func main() {
 
 				run.LastRunLk.Unlock()
 				if run.unsafeHasRunSince(2 * time.Second) {
-					run.LastRunLk.RUnlock()
+					run.LastRunLk.Lock()
 					fmt.Fprintf(os.Stderr, ".")
 					continue
 				}

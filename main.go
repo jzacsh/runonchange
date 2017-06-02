@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 )
 
@@ -47,10 +48,25 @@ type runDirective struct {
 	WatchTarget string
 	InvertMatch *regexp.Regexp
 	Features    map[featureFlag]bool
-	LastRun     time.Time
+
+	LastRun time.Time
+	RunMux  sync.Mutex
+	LastFin time.Time
 }
 
-func (run *runDirective) Exec(msgStdout bool) error {
+func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
+	run.RunMux.Lock()
+	defer run.RunMux.Unlock()
+
+	if run.isRecent(defaultWaitTime) {
+		return false, nil
+	}
+
+	e := run.execCmd(stdOut)
+	return true, e
+}
+
+func (run *runDirective) execCmd(msgStdout bool) error {
 	if msgStdout {
 		fmt.Printf("%s\t: `%s`\n",
 			color.YellowString("running"),
@@ -64,9 +80,10 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	run.LastRun = time.Time{}
-	runError := cmd.Run()
 	run.LastRun = time.Now()
+	run.LastFin = time.Time{}
+	runError := cmd.Run()
+	run.LastFin = time.Now()
 
 	if msgStdout {
 		if runError == nil {
@@ -80,14 +97,8 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	return runError
 }
 
-func (run *runDirective) isOkToRun() bool {
-	return !(run.isRunning() || run.hasRunRecently(defaultWaitTime))
-}
-
-func (run *runDirective) isRunning() bool { return run.LastRun.IsZero() }
-
-func (run *runDirective) hasRunRecently(since time.Duration) bool {
-	return time.Since(run.LastRun) <= since
+func (run *runDirective) isRecent(since time.Duration) bool {
+	return time.Since(run.LastFin) <= since
 }
 
 func usage() string {
@@ -171,7 +182,7 @@ func main() {
 			run.debugStr())
 	}
 
-	run.Exec(true /*msgStdout*/)
+	run.maybeRun(true /*msgStdout*/)
 
 	haveActionableEvent := make(chan bool)
 	done := make(chan bool)
@@ -205,13 +216,11 @@ func main() {
 		for {
 			select {
 			case <-haveActionableEvent:
-				if !run.isOkToRun() {
-					fmt.Fprintf(os.Stderr, ".")
-					continue
+				output := "\n"
+				if ran, _ := run.maybeRun(true /*msgStdout*/); !ran {
+					output = "."
 				}
-
-				fmt.Fprintf(os.Stderr, "\n")
-				run.Exec(true /*msgStdout*/)
+				fmt.Fprintf(os.Stderr, output)
 			}
 		}
 	}()

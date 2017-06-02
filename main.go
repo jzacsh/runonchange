@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"sync"
 	"time"
 )
 
@@ -47,10 +46,10 @@ type runDirective struct {
 	InvertMatch *regexp.Regexp
 	Features    map[featureFlag]bool
 	LastRun     time.Time
-	LastRunLk   sync.RWMutex
 }
 
 func (run *runDirective) Exec(msgStdout bool) error {
+	run.LastRun = time.Now()
 	if msgStdout {
 		fmt.Printf("%s\t: `%s`\n",
 			color.YellowString("running"),
@@ -78,8 +77,8 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	return runError
 }
 
-func (run *runDirective) unsafeHasRunSince(since time.Duration) bool {
-	return time.Since(run.LastRun) < since
+func (run *runDirective) hasRunRecently(since time.Duration) bool {
+	return time.Since(run.LastRun) <= since
 }
 
 func usage() string {
@@ -147,7 +146,6 @@ func main() {
 
 		die(exCommandline, perr)
 	}
-	run.LastRunLk.Lock()
 
 	watcher, e := fsnotify.NewWatcher()
 	if e != nil {
@@ -166,6 +164,7 @@ func main() {
 
 	run.Exec(true /*msgStdout*/)
 
+	haveActionableEvent := make(chan bool)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -186,19 +185,24 @@ func main() {
 					continue
 				}
 
-				run.LastRunLk.Unlock()
-				if run.unsafeHasRunSince(2 * time.Second) {
-					run.LastRunLk.Lock()
+				haveActionableEvent <- true
+			case err := <-watcher.Errors:
+				die(exFsevent, err)
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case <-haveActionableEvent:
+				if run.hasRunRecently(2 * time.Second) {
 					fmt.Fprintf(os.Stderr, ".")
 					continue
 				}
 
 				fmt.Fprintf(os.Stderr, "\n")
 				run.Exec(true /*msgStdout*/)
-				run.LastRun = time.Now()
-				run.LastRunLk.Lock()
-			case err := <-watcher.Errors:
-				die(exFsevent, err)
 			}
 		}
 	}()

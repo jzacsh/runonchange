@@ -68,7 +68,7 @@ func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
 
 func (run *runDirective) execCmd(msgStdout bool) error {
 	if msgStdout {
-		fmt.Printf("%s\t: `%s`\n",
+		fmt.Printf("\n%s\t: `%s`\n",
 			color.YellowString("running"),
 			color.HiRedString(run.Command))
 	}
@@ -216,11 +216,9 @@ func main() {
 		for {
 			select {
 			case <-haveActionableEvent:
-				output := "\n"
 				if ran, _ := run.maybeRun(true /*msgStdout*/); !ran {
-					output = "."
+					fmt.Fprintf(os.Stderr, ".")
 				}
-				fmt.Fprintf(os.Stderr, output)
 			}
 		}
 	}()

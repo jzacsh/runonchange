@@ -185,7 +185,6 @@ func main() {
 	run.maybeRun(true /*msgStdout*/)
 
 	haveActionableEvent := make(chan bool)
-	done := make(chan bool)
 	go func() {
 		for {
 			select {
@@ -226,5 +225,5 @@ func main() {
 	if err := watcher.Add(run.WatchTarget); err != nil {
 		die(exWatcher, e)
 	}
-	<-done // hang main
+	<-make(chan bool) // hang main
 }

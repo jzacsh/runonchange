@@ -173,7 +173,7 @@ func main() {
 	}
 	defer watcher.Close()
 
-	fmt.Printf("Watching `%s`\n", run.WatchTarget)
+	fmt.Printf("%s `%s`\n", color.HiGreenString("Watching"), run.WatchTarget)
 
 	if run.Features[flgDebugOutput] {
 		fmt.Fprintf(

@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const defaultWaitTime time.Duration = 2 * time.Second
+
 type featureFlag int
 
 const (
@@ -49,7 +51,6 @@ type runDirective struct {
 }
 
 func (run *runDirective) Exec(msgStdout bool) error {
-	run.LastRun = time.Now()
 	if msgStdout {
 		fmt.Printf("%s\t: `%s`\n",
 			color.YellowString("running"),
@@ -63,7 +64,9 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	run.LastRun = time.Time{}
 	runError := cmd.Run()
+	run.LastRun = time.Now()
 
 	if msgStdout {
 		if runError == nil {
@@ -76,6 +79,12 @@ func (run *runDirective) Exec(msgStdout bool) error {
 	}
 	return runError
 }
+
+func (run *runDirective) isOkToRun() bool {
+	return !(run.isRunning() || run.hasRunRecently(defaultWaitTime))
+}
+
+func (run *runDirective) isRunning() bool { return run.LastRun.IsZero() }
 
 func (run *runDirective) hasRunRecently(since time.Duration) bool {
 	return time.Since(run.LastRun) <= since
@@ -196,7 +205,7 @@ func main() {
 		for {
 			select {
 			case <-haveActionableEvent:
-				if run.hasRunRecently(2 * time.Second) {
+				if !run.isOkToRun() {
 					fmt.Fprintf(os.Stderr, ".")
 					continue
 				}

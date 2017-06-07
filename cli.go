@@ -123,6 +123,8 @@ func parseCli() (*runDirective, *parseError) {
 	for i := 0; i < len(optionals); i++ {
 		arg := optionals[i]
 		switch arg {
+		case "-c":
+			directive.Features[flgClobberCommands] = true
 		case "-i":
 			fallthrough
 		case "-r":

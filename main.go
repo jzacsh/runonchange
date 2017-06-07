@@ -22,6 +22,7 @@ const (
 	// Particularly useful for VIM flury of events, see:
 	//   https://stackoverflow.com/q/10300835/287374
 	flgDebugOutput
+	flgClobberCommands
 )
 
 func (flg featureFlag) String() string {
@@ -57,6 +58,8 @@ type runDirective struct {
 
 	LastRun time.Time
 	RunMux  sync.Mutex
+	Cmd     *exec.Cmd
+	Err     chan error
 	LastFin time.Time
 }
 
@@ -68,6 +71,7 @@ func (m *matcher) String() string {
 	return fmt.Sprintf("[%s]: %v", status, *m.Expr)
 }
 
+// TODO(zacsh) add flag to auto-clobber still-running COMMAND
 func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
 	run.RunMux.Lock()
 	defer run.RunMux.Unlock()
@@ -76,11 +80,32 @@ func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
 		return false, nil
 	}
 
-	e := run.execCmd(stdOut)
+	if run.Features[flgClobberCommands] {
+		return run.maybeRunAsync(stdOut), nil
+	} else {
+		return run.maybeRunSync(stdOut)
+	}
+}
+
+func (run *runDirective) maybeRunSync(stdOut bool) (bool, error) {
+	run.execAsync(stdOut)
+	e := <-run.Err // block
 	return true, e
 }
 
-func (run *runDirective) execCmd(msgStdout bool) error {
+func (run *runDirective) maybeRunAsync(stdOut bool) bool {
+	if run.Cmd != nil {
+		if e := run.Cmd.Process.Kill(); e != nil {
+			fmt.Fprintf(os.Stderr, "clobber: failed to kill: %s\n", e)
+			return false
+		}
+	}
+
+	go run.execAsync(stdOut)
+	return true
+}
+
+func (run *runDirective) execAsync(msgStdout bool) {
 	if msgStdout {
 		fmt.Printf("\n%s\t: `%s`\n",
 			color.YellowString("running"),
@@ -89,26 +114,33 @@ func (run *runDirective) execCmd(msgStdout bool) error {
 
 	// TODO(zacsh) find out a shell-agnostic way to run comands (eg: *bash*
 	// specifically takes a "-c" flag)
-	cmd := exec.Command(run.Shell, "-c", run.Command)
+	run.Cmd = exec.Command(run.Shell, "-c", run.Command)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	run.Cmd.Stdout = os.Stdout
+	run.Cmd.Stderr = os.Stderr
 
 	run.LastRun = time.Now()
 	run.LastFin = time.Time{}
-	runError := cmd.Run()
-	run.LastFin = time.Now()
+	run.Err = make(chan error)
+	go func() {
+		run.Err <- run.Cmd.Run()
+		close(run.Err)
+		run.LastFin = time.Now()
+		run.Cmd = nil
+	}()
 
 	if msgStdout {
-		if runError == nil {
-			fmt.Printf("%s\n", color.YellowString("done"))
-		} else {
-			fmt.Printf("%s\t:  %s\n\n",
-				color.YellowString("done"),
-				color.New(color.Bold, color.FgRed).Sprintf(runError.Error()))
+		select {
+		case e := <-run.Err:
+			if e == nil {
+				fmt.Printf("%s\n", color.YellowString("done"))
+			} else {
+				fmt.Printf("%s\t:  %s\n\n",
+					color.YellowString("done"),
+					color.New(color.Bold, color.FgRed).Sprintf(e.Error()))
+			}
 		}
 	}
-	return runError
 }
 
 func (run *runDirective) isRecent(since time.Duration) bool {
@@ -117,7 +149,10 @@ func (run *runDirective) isRecent(since time.Duration) bool {
 
 func usage() string {
 	return fmt.Sprintf(`Runs a command everytime some filesystem events happen.
-  Usage:  COMMAND  [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
+  Usage:  COMMAND -c  [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
+
+  If -c is passed, then long-running COMMAND will be killed when newer
+  triggering events are received.
 
   Regular expressions can be used to match against files whose events have been
   as described by the next two flags:
@@ -242,9 +277,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "[debug] here's what you asked for:\n%s\n", run.debugStr())
 	}
 
-	run.maybeRun(true /*msgStdout*/)
-
-	haveActionableEvent := make(chan bool)
+	haveActionableEvent := make(chan fsnotify.Event)
 	go func() {
 		for {
 			select {
@@ -263,7 +296,7 @@ func main() {
 					continue
 				}
 
-				haveActionableEvent <- true
+				haveActionableEvent <- e
 			case err := <-watcher.Errors:
 				die(exFsevent, err)
 			}
@@ -287,6 +320,7 @@ func main() {
 		}
 	}
 
+	run.maybeRun(true /*msgStdout*/)
 	fmt.Printf("%s `%s`\n",
 		color.HiGreenString("Watching"),
 		strings.Join(run.WatchTargets, ", "))

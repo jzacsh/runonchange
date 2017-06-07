@@ -61,10 +61,10 @@ func parseFilePattern(pattern string) (*regexp.Regexp, *parseError) {
 	return match, nil
 }
 
-func parseCli() (runDirective, *parseError) {
+func parseCli() (*runDirective, *parseError) {
 	args := os.Args[1:]
 	if len(args) < 1 {
-		return runDirective{}, &parseError{
+		return nil, &parseError{
 			Stage:   psNumArgs,
 			Message: "at least COMMAND argument needed",
 		}
@@ -72,11 +72,11 @@ func parseCli() (runDirective, *parseError) {
 
 	cmd := strings.TrimSpace(args[0])
 	if len(cmd) < 1 {
-		return runDirective{}, expectedNonZero(psCommand)
+		return nil, expectedNonZero(psCommand)
 	}
 
 	if cmd == "-h" || cmd == "h" || cmd == "--help" || cmd == "help" {
-		return runDirective{}, &parseError{Stage: psHelp}
+		return nil, &parseError{Stage: psHelp}
 	}
 
 	directive := runDirective{
@@ -87,7 +87,7 @@ func parseCli() (runDirective, *parseError) {
 
 	shell := os.Getenv("SHELL")
 	if len(shell) < 1 {
-		return runDirective{}, &parseError{
+		return nil, &parseError{
 			Stage:   psCommand,
 			Message: "$SHELL env variable required",
 		}
@@ -96,15 +96,23 @@ func parseCli() (runDirective, *parseError) {
 	if _, e := os.Stat(shell); e != nil {
 		// we expect shell to be a path name, per:
 		//   http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08
-		return runDirective{}, &parseError{
+		return nil, &parseError{
 			Stage:   psCommand,
 			Message: fmt.Sprintf("$SHELL: %s", e),
 		}
 	}
 	directive.Shell = shell
 
+	defer func(d *runDirective) {
+		if len(d.WatchTargets) > 0 {
+			return
+		}
+
+		d.WatchTargets = []string{"./"}
+	}(&directive)
+
 	if len(args) == 1 {
-		return directive, nil
+		return &directive, nil
 	}
 
 	optionals := args[1:]
@@ -128,7 +136,7 @@ func parseCli() (runDirective, *parseError) {
 			ptrnStr := optionals[i]
 			ptrn, e := parseFilePattern(ptrnStr)
 			if e != nil {
-				return runDirective{}, e
+				return nil, e
 			}
 
 			m.Expr = ptrn
@@ -136,21 +144,21 @@ func parseCli() (runDirective, *parseError) {
 		default:
 			watchTargetPath := strings.TrimSpace(arg)
 			if len(watchTargetPath) < 1 {
-				return runDirective{}, expectedNonZero(psWatchTarget)
+				return nil, expectedNonZero(psWatchTarget)
 			}
 			watchTarget, e := os.Stat(watchTargetPath)
 			if e != nil {
-				return runDirective{}, &parseError{Stage: psWatchTarget, Message: e.Error()}
+				return nil, &parseError{Stage: psWatchTarget, Message: e.Error()}
 			}
 			if !watchTarget.IsDir() {
-				return runDirective{}, &parseError{
+				return nil, &parseError{
 					Stage:   psWatchTarget,
 					Message: fmt.Sprintf("must be a directory"),
 				}
 			}
 			watchPath, e := filepath.Abs(watchTargetPath)
 			if e != nil {
-				return runDirective{}, &parseError{
+				return nil, &parseError{
 					Stage:   psWatchTarget,
 					Message: fmt.Sprintf("expanding path: %s", e),
 				}
@@ -166,11 +174,9 @@ func parseCli() (runDirective, *parseError) {
 		directive.Patterns = directive.Patterns[:ptrnCount] // slice off excess
 	}
 
-	if trgtCount == 0 {
-		directive.WatchTargets = []string{"./"}
-	} else {
+	if trgtCount != 0 {
 		directive.WatchTargets = directive.WatchTargets[:trgtCount] // slice off excess
 	}
 
-	return directive, nil
+	return &directive, nil
 }

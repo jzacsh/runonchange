@@ -129,16 +129,17 @@ func (run *runDirective) execAsync(msgStdout bool) {
 		run.Cmd = nil
 	}()
 
-	if msgStdout {
-		select {
-		case e := <-run.Err:
-			if e == nil {
-				fmt.Printf("%s\n", color.YellowString("done"))
-			} else {
-				fmt.Printf("%s\t:  %s\n\n",
-					color.YellowString("done"),
-					color.New(color.Bold, color.FgRed).Sprintf(e.Error()))
-			}
+	if !msgStdout {
+		return
+	}
+	select {
+	case e := <-run.Err:
+		if e == nil {
+			fmt.Printf("%s\n", color.YellowString("done"))
+		} else {
+			fmt.Printf("%s\t:  %s\n\n",
+				color.YellowString("done"),
+				color.New(color.Bold, color.FgRed).Sprintf(e.Error()))
 		}
 	}
 }

@@ -92,40 +92,42 @@ func parseCli() (runDirective, *parseError) {
 	}
 	directive.Shell = shell
 
-	if len(args) > 1 {
-		watchTargetPath := args[1]
-		if len(watchTargetPath) < 1 {
-			return runDirective{}, expectedNonZero(psWatchTarget)
-		}
-		watchTarget, e := os.Stat(watchTargetPath)
-		if e != nil {
-			return runDirective{}, &parseError{Stage: psWatchTarget, Message: e.Error()}
-		}
-		if !watchTarget.IsDir() {
-			return runDirective{}, &parseError{
-				Stage:   psWatchTarget,
-				Message: fmt.Sprintf("must be a directory"),
-			}
-		}
-		watchPath, e := filepath.Abs(watchTargetPath)
-		if e != nil {
-			return runDirective{}, &parseError{
-				Stage:   psWatchTarget,
-				Message: fmt.Sprintf("expanding path: %s", e),
-			}
-		}
-		directive.WatchTarget = watchPath
+	if len(args) == 1 {
+		return directive, nil
+	}
 
-		if len(args) > 2 {
-			invertMatch, e := regexp.Compile(args[2])
-			if e != nil {
-				return runDirective{}, &parseError{
-					Stage:   psInvertMatch,
-					Message: fmt.Sprintf("pattern: %s", e),
-				}
-			}
-			directive.InvertMatch = invertMatch
+	watchTargetPath := args[1]
+	if len(watchTargetPath) < 1 {
+		return runDirective{}, expectedNonZero(psWatchTarget)
+	}
+	watchTarget, e := os.Stat(watchTargetPath)
+	if e != nil {
+		return runDirective{}, &parseError{Stage: psWatchTarget, Message: e.Error()}
+	}
+	if !watchTarget.IsDir() {
+		return runDirective{}, &parseError{
+			Stage:   psWatchTarget,
+			Message: fmt.Sprintf("must be a directory"),
 		}
+	}
+	watchPath, e := filepath.Abs(watchTargetPath)
+	if e != nil {
+		return runDirective{}, &parseError{
+			Stage:   psWatchTarget,
+			Message: fmt.Sprintf("expanding path: %s", e),
+		}
+	}
+	directive.WatchTarget = watchPath
+
+	if len(args) > 2 {
+		invertMatch, e := regexp.Compile(args[2])
+		if e != nil {
+			return runDirective{}, &parseError{
+				Stage:   psInvertMatch,
+				Message: fmt.Sprintf("pattern: %s", e),
+			}
+		}
+		directive.InvertMatch = invertMatch
 	}
 
 	return directive, nil

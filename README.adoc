@@ -9,3 +9,8 @@ $ go get github.com/jzacsh/runonchange
 ----
 
 NOTE: this is a port {frombash}[from bash] to Golang.
+
+.TODO
+1. make use of regexp only possible via flag
+2. take arbitrary positional args for files to watch
+   (eg: `./*` to watch subdirs)

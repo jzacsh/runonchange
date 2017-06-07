@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 type parseStage int
@@ -14,7 +15,7 @@ const (
 	psHelp
 	psCommand
 	psWatchTarget
-	psInvertMatch
+	psFilePattern
 )
 
 type parseError struct {
@@ -36,8 +37,8 @@ func parseStageStr(stage parseStage) string {
 		return "COMMAND"
 	case psWatchTarget:
 		return "DIR_TO_WATCH"
-	case psInvertMatch:
-		return "FILE_IGNORE_PATTERN"
+	case psFilePattern:
+		return "FILE_PATTERN"
 	}
 	panic(fmt.Sprintf("unexpected parseStage found, '%d'", int(stage)))
 }
@@ -49,6 +50,17 @@ func expectedNonZero(stage parseStage) *parseError {
 	}
 }
 
+func parseFilePattern(pattern string) (*regexp.Regexp, *parseError) {
+	match, e := regexp.Compile(pattern)
+	if e != nil {
+		return nil, &parseError{
+			Stage:   psFilePattern,
+			Message: fmt.Sprintf("pattern, '%s': %s", pattern, e),
+		}
+	}
+	return match, nil
+}
+
 func parseCli() (runDirective, *parseError) {
 	args := os.Args[1:]
 	if len(args) < 1 {
@@ -58,7 +70,7 @@ func parseCli() (runDirective, *parseError) {
 		}
 	}
 
-	cmd := args[0]
+	cmd := strings.TrimSpace(args[0])
 	if len(cmd) < 1 {
 		return runDirective{}, expectedNonZero(psCommand)
 	}
@@ -68,9 +80,8 @@ func parseCli() (runDirective, *parseError) {
 	}
 
 	directive := runDirective{
-		Command:     cmd,
-		WatchTarget: "./",
-		Features:    make(map[featureFlag]bool),
+		Command:  cmd,
+		Features: make(map[featureFlag]bool),
 	}
 	directive.Features[flgAutoIgnore] = true // TODO encode as "default" somewhere
 
@@ -96,38 +107,69 @@ func parseCli() (runDirective, *parseError) {
 		return directive, nil
 	}
 
-	watchTargetPath := args[1]
-	if len(watchTargetPath) < 1 {
-		return runDirective{}, expectedNonZero(psWatchTarget)
-	}
-	watchTarget, e := os.Stat(watchTargetPath)
-	if e != nil {
-		return runDirective{}, &parseError{Stage: psWatchTarget, Message: e.Error()}
-	}
-	if !watchTarget.IsDir() {
-		return runDirective{}, &parseError{
-			Stage:   psWatchTarget,
-			Message: fmt.Sprintf("must be a directory"),
-		}
-	}
-	watchPath, e := filepath.Abs(watchTargetPath)
-	if e != nil {
-		return runDirective{}, &parseError{
-			Stage:   psWatchTarget,
-			Message: fmt.Sprintf("expanding path: %s", e),
-		}
-	}
-	directive.WatchTarget = watchPath
-
-	if len(args) > 2 {
-		invertMatch, e := regexp.Compile(args[2])
-		if e != nil {
-			return runDirective{}, &parseError{
-				Stage:   psInvertMatch,
-				Message: fmt.Sprintf("pattern: %s", e),
+	optionals := args[1:]
+	directive.Patterns = make([]matcher, len(optionals))
+	directive.WatchTargets = make([]string, len(optionals))
+	trgtCount := 0
+	ptrnCount := 0
+	for i := 0; i < len(optionals); i++ {
+		arg := optionals[i]
+		switch arg {
+		case "-i":
+			fallthrough
+		case "-r":
+			var m matcher
+			if arg == "-i" {
+				m.IsIgnore = true
 			}
+
+			i++
+			ptrnCount++
+			ptrnStr := optionals[i]
+			ptrn, e := parseFilePattern(ptrnStr)
+			if e != nil {
+				return runDirective{}, e
+			}
+
+			m.Expr = ptrn
+			directive.Patterns[ptrnCount-1] = m
+		default:
+			watchTargetPath := strings.TrimSpace(arg)
+			if len(watchTargetPath) < 1 {
+				return runDirective{}, expectedNonZero(psWatchTarget)
+			}
+			watchTarget, e := os.Stat(watchTargetPath)
+			if e != nil {
+				return runDirective{}, &parseError{Stage: psWatchTarget, Message: e.Error()}
+			}
+			if !watchTarget.IsDir() {
+				return runDirective{}, &parseError{
+					Stage:   psWatchTarget,
+					Message: fmt.Sprintf("must be a directory"),
+				}
+			}
+			watchPath, e := filepath.Abs(watchTargetPath)
+			if e != nil {
+				return runDirective{}, &parseError{
+					Stage:   psWatchTarget,
+					Message: fmt.Sprintf("expanding path: %s", e),
+				}
+			}
+			trgtCount++
+			directive.WatchTargets[trgtCount-1] = watchPath
 		}
-		directive.InvertMatch = invertMatch
+	}
+
+	if ptrnCount == 0 {
+		directive.Patterns = nil
+	} else {
+		directive.Patterns = directive.Patterns[:ptrnCount] // slice off excess
+	}
+
+	if trgtCount == 0 {
+		directive.WatchTargets = []string{"./"}
+	} else {
+		directive.WatchTargets = directive.WatchTargets[:trgtCount] // slice off excess
 	}
 
 	return directive, nil

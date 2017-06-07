@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -42,16 +43,29 @@ const (
 	exFsevent
 )
 
+type matcher struct {
+	Expr     *regexp.Regexp
+	IsIgnore bool
+}
+
 type runDirective struct {
-	Shell       string
-	Command     string
-	WatchTarget string
-	InvertMatch *regexp.Regexp
-	Features    map[featureFlag]bool
+	Shell        string
+	Command      string
+	WatchTargets []string
+	Patterns     []matcher
+	Features     map[featureFlag]bool
 
 	LastRun time.Time
 	RunMux  sync.Mutex
 	LastFin time.Time
+}
+
+func (m *matcher) String() string {
+	status := "RESTR"
+	if m.IsIgnore {
+		status = "IGNOR"
+	}
+	return fmt.Sprintf("[%s]: %v", status, *m.Expr)
 }
 
 func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
@@ -103,13 +117,24 @@ func (run *runDirective) isRecent(since time.Duration) bool {
 
 func usage() string {
 	return fmt.Sprintf(`Runs a command everytime some filesystem events happen.
-  Usage:  COMMAND  [DIR_TO_WATCH  [FILE_IGNORE_PATTERN]]
+  Usage:  COMMAND  [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 
-  DIR_TO_WATCH defaults to the current working directory.
-  FILE_IGNORE_PATTERN If provided, is used to match against the basename of the
-    exact file whose event has been captured. If FILE_IGNORE_PATTERN expression
-    matches said file, COMMAND will not be run.
-    Valid arguments are those accepted by https://golang.org/pkg/regexp/#Compile
+  Regular expressions can be used to match against files whose events have been
+  as described by the next two flags:
+
+  -i FILE_PATTERN: only run COMMAND if match is not made (invert/ignore)
+  -r FILE_PATTERN: only run COMMAND if match is made
+
+    This program watches filesystem events. Thus, when an event occurs, there
+    is an associated file that causes that event. FILE_PATTERN tries to match
+    that file's basename to FILE_PATTERN. The result of that match is as
+    described by the flag preceding FILE_PATTERN, explained above.
+
+    Valid FILE_PATTERN strings are those accepted by:
+      https://golang.org/pkg/regexp/#Compile
+
+  DIR_TO_WATCH defaults to just one: the current working directory. Multiple
+  directories can be passed.
 `)
 }
 
@@ -129,9 +154,16 @@ func die(reason exitReason, e error) {
 }
 
 func (c *runDirective) debugStr() string {
-	invertMatch := "n/a"
-	if c.InvertMatch != nil {
-		invertMatch = c.InvertMatch.String()
+	matchStr := "n/a"
+	if len(c.Patterns) > 0 {
+		matchStr = fmt.Sprintf("'%v',", c.Patterns[0])
+		for _, p := range c.Patterns[1:] {
+			matchStr = fmt.Sprintf("%s '%v',", matchStr, p)
+		}
+
+		matchStr = fmt.Sprintf(
+			"%s", // close off bracket
+			matchStr[:len(matchStr)-1 /*chop off trailing comma*/])
 	}
 
 	var features string
@@ -146,12 +178,45 @@ func (c *runDirective) debugStr() string {
 	}
 
 	return fmt.Sprintf(`
-  run.Command:            "%s"
-  run.WatchTarget.Name(): "%s"
-  run.InvertMatch:        "%s"
-  run.Shell:              "%s"
-  run.Features:           %s
-  `, c.Command, c.WatchTarget, invertMatch, c.Shell, features)
+  run.Command:                "%s"
+  run.WatchTargets' Name()s:  [%s]
+  run.FilePatterns:           [%s]
+  run.Shell:                  "%s"
+  run.Features:                %s
+  `, c.Command,
+		fmt.Sprintf("\n\t%s\n\t", strings.Join(c.WatchTargets, ",\n\t")),
+		matchStr,
+		c.Shell,
+		features)
+}
+
+func (run *runDirective) isRejected(chain []matcher, e fsnotify.Event) bool {
+	if len(chain) == 0 {
+		return false
+	}
+
+	for i, p := range chain {
+		if p.IsIgnore {
+			if p.Expr.MatchString(filepath.Base(e.Name)) {
+				if run.Features[flgDebugOutput] {
+					fmt.Fprintf(os.Stderr, "IGNR[%d]\n", i)
+				} else {
+					fmt.Fprintf(os.Stderr, "-")
+				}
+				return true
+			}
+		} else {
+			if !p.Expr.MatchString(filepath.Base(e.Name)) {
+				if run.Features[flgDebugOutput] {
+					fmt.Fprintf(os.Stderr, "MISS[%d]\n", i)
+				} else {
+					fmt.Fprintf(os.Stderr, "_")
+				}
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func main() {
@@ -173,13 +238,8 @@ func main() {
 	}
 	defer watcher.Close()
 
-	fmt.Printf("%s `%s`\n", color.HiGreenString("Watching"), run.WatchTarget)
-
 	if run.Features[flgDebugOutput] {
-		fmt.Fprintf(
-			os.Stderr,
-			"[debug] not yet implemented, but here's what you asked for:\n%s\n",
-			run.debugStr())
+		fmt.Fprintf(os.Stderr, "[debug] here's what you asked for:\n%s\n", run.debugStr())
 	}
 
 	run.maybeRun(true /*msgStdout*/)
@@ -199,8 +259,7 @@ func main() {
 					}
 				}
 
-				if run.InvertMatch != nil &&
-					run.InvertMatch.MatchString(filepath.Base(e.Name)) {
+				if run.isRejected(run.Patterns, e) {
 					continue
 				}
 
@@ -222,8 +281,15 @@ func main() {
 		}
 	}()
 
-	if err := watcher.Add(run.WatchTarget); err != nil {
-		die(exWatcher, e)
+	for _, t := range run.WatchTargets {
+		if err := watcher.Add(t); err != nil {
+			die(exWatcher, e)
+		}
 	}
+
+	fmt.Printf("%s `%s`\n",
+		color.HiGreenString("Watching"),
+		strings.Join(run.WatchTargets, ", "))
+
 	<-make(chan bool) // hang main
 }

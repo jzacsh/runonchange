@@ -275,7 +275,9 @@ func main() {
 	defer watcher.Close()
 
 	if run.Features[flgDebugOutput] {
-		fmt.Fprintf(os.Stderr, "[debug] here's what you asked for:\n%s\n", run.debugStr())
+		fmt.Fprintf(os.Stderr,
+			"[debug] here's what you asked for:\n%s\n",
+			run.debugStr())
 	}
 
 	haveActionableEvent := make(chan fsnotify.Event)

@@ -183,15 +183,17 @@ func (run *runDirective) messageDeath(e error) {
 		maybeLn = "\n"
 	}
 
-	if e == nil {
-		fmt.Printf("%s%s\n", maybeLn, color.YellowString("done"))
-		return
+	var maybeErr string
+	if e != nil {
+		maybeErr = fmt.Sprintf(
+			"\t:  %s",
+			color.New(color.Bold, color.FgRed).Sprintf(e.Error()))
 	}
 
-	fmt.Printf("%s%s\t:  %s\n\n",
+	fmt.Printf("%s%s%s\n",
 		maybeLn,
 		color.YellowString("done"),
-		color.New(color.Bold, color.FgRed).Sprintf(e.Error()))
+		maybeErr)
 }
 
 func usage() string {

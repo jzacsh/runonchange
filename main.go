@@ -6,6 +6,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -101,22 +102,31 @@ func (run *runDirective) runSync(stdOut bool) (bool, error) {
 	return true, e
 }
 
-func (run *runDirective) kill() bool {
-	if e := syscall.Kill(-run.Living.Pid, syscall.SIGKILL); e != nil {
-		fmt.Fprintf(os.Stderr, "clobber: failed to kill: %s\n", e)
-		return false
+// Tries to kill any existant COMMANDs still running
+// returns indication of whether attempt was made and its errors:
+//   true if any existed (ie: any cleanup was necessary)
+//   error if cleanup failed
+func (run *runDirective) cleanupExistant(wait bool) (existed bool, fail error) {
+	existed = run.Living != nil
+	if !existed {
+		return
 	}
 
-	// TODO(zacsh) utilize os.Process.Exit() method
-	<-run.Death
-	return true
+	if fail = syscall.Kill(-run.Living.Pid, syscall.SIGKILL); fail != nil {
+		fmt.Fprintf(os.Stderr, "failed to kill exec's pgroup: %s\n", fail)
+		return
+	}
+
+	if wait {
+		// TODO(zacsh) utilize os.Process.Exit() method
+		<-run.Death
+	}
+	return
 }
 
 func (run *runDirective) runAsync(stdOut bool) bool {
-	if run.Living != nil {
-		if !run.kill() {
-			return false
-		}
+	if _, e := run.cleanupExistant(true /*wait*/); e != nil {
+		return false
 	}
 
 	go run.execAsync(stdOut)
@@ -356,8 +366,6 @@ func main() {
 				}
 
 			case <-haveActionableEvent:
-				// TODO(zacsh) capture SIGINT (ie: os/signal pkg) and cleanup any
-				// goroutines still spinning from run.maybeRun
 				if ran, _ := run.maybeRun(true /*msgStdout*/); !ran {
 					fmt.Fprintf(os.Stderr, ".")
 				}
@@ -376,5 +384,17 @@ func main() {
 		color.HiGreenString("Watching"),
 		strings.Join(run.WatchTargets, ", "))
 
-	<-make(chan bool) // hang main
+	kills := make(chan os.Signal, 1)
+	signal.Notify(kills, os.Interrupt)
+	for sig := range kills {
+		fmt.Fprintf(os.Stderr, "\nCaught %v (%d); Cleaning up... ", sig, sig)
+		ex := 0
+		if _, e := run.cleanupExistant(false /*wait*/); e != nil {
+			ex = 1
+			fmt.Fprintf(os.Stderr, "Failed: %v\n", e)
+		} else {
+			fmt.Fprintf(os.Stderr, "Done\n")
+		}
+		os.Exit(ex)
+	}
 }

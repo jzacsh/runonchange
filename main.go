@@ -112,7 +112,9 @@ func (run *runDirective) cleanupExistant(wait bool) (existed bool, fail error) {
 	}
 
 	if fail = syscall.Kill(-run.Living.Pid, syscall.SIGKILL); fail != nil {
-		fmt.Fprintf(os.Stderr, "failed to kill exec's pgroup: %s\n", fail)
+		fmt.Fprintf(os.Stderr,
+			"failed to kill exec's pgroup[%d]: %s\n",
+			run.Living.Pid, fail)
 		return
 	}
 

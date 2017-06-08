@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"syscall" // TODO(zacsh) important to use x/syscall/unix explicitly?
 	"time"
 )
 
@@ -59,7 +60,9 @@ type runDirective struct {
 	LastRun time.Time
 	RunMux  sync.Mutex
 	Cmd     *exec.Cmd
-	Err     chan error
+	Birth   chan os.Process
+	Living  *os.Process
+	Death   chan error
 	LastFin time.Time
 }
 
@@ -80,29 +83,49 @@ func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
 		return false, nil
 	}
 
+	run.Birth = make(chan os.Process, 1)
+	run.Death = make(chan error, 1)
+	run.LastRun = time.Now()
+	run.LastFin = time.Time{}
 	if run.Features[flgClobberCommands] {
-		return run.maybeRunAsync(stdOut), nil
+		return run.runAsync(stdOut), nil
 	} else {
-		return run.maybeRunSync(stdOut)
+		return run.runSync(stdOut)
 	}
 }
 
-func (run *runDirective) maybeRunSync(stdOut bool) (bool, error) {
+func (run *runDirective) runSync(stdOut bool) (bool, error) {
 	run.execAsync(stdOut)
-	e := <-run.Err // block
+	e := <-run.Death // block
+	close(run.Birth)
 	return true, e
 }
 
-func (run *runDirective) maybeRunAsync(stdOut bool) bool {
-	if run.Cmd != nil {
-		if e := run.Cmd.Process.Kill(); e != nil {
-			fmt.Fprintf(os.Stderr, "clobber: failed to kill: %s\n", e)
+func (run *runDirective) kill() bool {
+	if e := syscall.Kill(-run.Living.Pid, syscall.SIGKILL); e != nil {
+		fmt.Fprintf(os.Stderr, "clobber: failed to kill: %s\n", e)
+		return false
+	}
+
+	// TODO(zacsh) utilize os.Process.Exit() method
+	<-run.Death
+	return true
+}
+
+func (run *runDirective) runAsync(stdOut bool) bool {
+	if run.Living != nil {
+		if !run.kill() {
 			return false
 		}
 	}
 
 	go run.execAsync(stdOut)
-	return true
+	select {
+	case p := <-run.Birth:
+		run.Living = &p
+		close(run.Birth)
+		return true
+	}
 }
 
 func (run *runDirective) execAsync(msgStdout bool) {
@@ -115,37 +138,51 @@ func (run *runDirective) execAsync(msgStdout bool) {
 	// TODO(zacsh) find out a shell-agnostic way to run comands (eg: *bash*
 	// specifically takes a "-c" flag)
 	run.Cmd = exec.Command(run.Shell, "-c", run.Command)
-
+	run.Cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	run.Cmd.Stdout = os.Stdout
 	run.Cmd.Stderr = os.Stderr
 
-	run.LastRun = time.Now()
-	run.LastFin = time.Time{}
-	run.Err = make(chan error)
 	go func() {
-		run.Err <- run.Cmd.Run()
-		close(run.Err)
+		e := run.Cmd.Run()
 		run.LastFin = time.Now()
-		run.Cmd = nil
+		if msgStdout {
+			run.messageDeath(e)
+		}
+		run.Death <- e
 	}()
 
-	if !msgStdout {
-		return
-	}
-	select {
-	case e := <-run.Err:
-		if e == nil {
-			fmt.Printf("%s\n", color.YellowString("done"))
-		} else {
-			fmt.Printf("%s\t:  %s\n\n",
-				color.YellowString("done"),
-				color.New(color.Bold, color.FgRed).Sprintf(e.Error()))
+	for {
+		if run.Cmd != nil && run.Cmd.Process != nil {
+			run.Birth <- *run.Cmd.Process
+			break
 		}
 	}
 }
 
 func (run *runDirective) isRecent(since time.Duration) bool {
-	return time.Since(run.LastFin) <= since
+	if run.Features[flgClobberCommands] {
+		since *= 2
+	}
+
+	return time.Since(run.LastRun) <= since ||
+		time.Since(run.LastFin) <= since
+}
+
+func (run *runDirective) messageDeath(e error) {
+	var maybeLn string
+	if run.Features[flgClobberCommands] {
+		maybeLn = "\n"
+	}
+
+	if e == nil {
+		fmt.Printf("%s%s\n", maybeLn, color.YellowString("done"))
+		return
+	}
+
+	fmt.Printf("%s%s\t:  %s\n\n",
+		maybeLn,
+		color.YellowString("done"),
+		color.New(color.Bold, color.FgRed).Sprintf(e.Error()))
 }
 
 func usage() string {
@@ -309,7 +346,18 @@ func main() {
 	go func() {
 		for {
 			select {
+			case e := <-run.Death:
+				run.Living = nil
+				if run.Features[flgClobberCommands] {
+					fmt.Fprintf(os.Stderr,
+						"%s: captured natural death, unprovoked; output was: %v\n",
+						color.HiYellowString("WARNING"),
+						e)
+				}
+
 			case <-haveActionableEvent:
+				// TODO(zacsh) capture SIGINT (ie: os/signal pkg) and cleanup any
+				// goroutines still spinning from run.maybeRun
 				if ran, _ := run.maybeRun(true /*msgStdout*/); !ran {
 					fmt.Fprintf(os.Stderr, ".")
 				}

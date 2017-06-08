@@ -190,9 +190,10 @@ func (run *runDirective) messageDeath(e error) {
 			color.New(color.Bold, color.FgRed).Sprintf(e.Error()))
 	}
 
-	fmt.Printf("%s%s%s\n",
+	fmt.Printf("%s%s in %v.%s\n",
 		maybeLn,
 		color.YellowString("done"),
+		run.LastFin.Sub(run.LastRun),
 		maybeErr)
 }
 

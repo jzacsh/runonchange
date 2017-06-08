@@ -117,7 +117,7 @@ func (run *runDirective) cleanupExistant(wait bool) (existed bool, fail error) {
 	}
 
 	if wait {
-		// TODO(zacsh) utilize os.Process.Exit() method
+		// TODO(zacsh) utilize os.Process.Wait() method
 		<-run.Death
 	}
 	return

@@ -75,7 +75,6 @@ func (m *matcher) String() string {
 	return fmt.Sprintf("[%s]: %v", status, *m.Expr)
 }
 
-// TODO(zacsh) add flag to auto-clobber still-running COMMAND
 func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
 	run.RunMux.Lock()
 	defer run.RunMux.Unlock()

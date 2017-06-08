@@ -358,14 +358,14 @@ func main() {
 	go func() {
 		for {
 			select {
-			case e := <-run.Death:
+			case <-run.Death:
 				run.Living = nil
-				if run.Features[flgClobberCommands] {
-					fmt.Fprintf(os.Stderr,
-						"%s: captured natural death, unprovoked; output was: %v\n",
-						color.HiYellowString("WARNING"),
-						e)
+				if !run.Features[flgClobberCommands] {
+					continue
 				}
+				fmt.Fprintf(os.Stderr,
+					"\t%s: death was unprovoked\n",
+					color.New(color.Bold, color.FgBlue).Sprintf("warning"))
 
 			case <-haveActionableEvent:
 				if ran, _ := run.maybeRun(true /*msgStdout*/); !ran {

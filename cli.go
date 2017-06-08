@@ -61,14 +61,6 @@ func parseFilePattern(pattern string) (*regexp.Regexp, *parseError) {
 	return match, nil
 }
 
-func (d *runDirective) setDefaultTargets(tcount int) {
-	if tcount > 0 {
-		return
-	}
-
-	d.WatchTargets = []string{"./"}
-}
-
 func parseCli() (*runDirective, *parseError) {
 	args := os.Args[1:]
 	if len(args) < 1 {
@@ -88,8 +80,9 @@ func parseCli() (*runDirective, *parseError) {
 	}
 
 	directive := runDirective{
-		Command:  cmd,
-		Features: make(map[featureFlag]bool),
+		Command:      cmd,
+		Features:     make(map[featureFlag]bool),
+		WatchTargets: []string{"./"},
 	}
 	directive.Features[flgAutoIgnore] = true // TODO encode as "default" somewhere
 
@@ -111,16 +104,14 @@ func parseCli() (*runDirective, *parseError) {
 	}
 	directive.Shell = shell
 
-	trgtCount := 0
-	ptrnCount := 0
-	defer directive.setDefaultTargets(trgtCount)
 	if len(args) == 1 {
 		return &directive, nil
 	}
 
 	optionals := args[1:]
 	directive.Patterns = make([]matcher, len(optionals))
-	directive.WatchTargets = make([]string, len(optionals))
+	trgtCount := 0
+	ptrnCount := 0
 	for i := 0; i < len(optionals); i++ {
 		arg := optionals[i]
 		switch arg {
@@ -145,6 +136,11 @@ func parseCli() (*runDirective, *parseError) {
 			m.Expr = ptrn
 			directive.Patterns[ptrnCount-1] = m
 		default:
+			if trgtCount == 0 {
+				// overwrite default if we've been given any explicitly
+				directive.WatchTargets = make([]string, len(optionals))
+			}
+
 			watchTargetPath := strings.TrimSpace(arg)
 			if len(watchTargetPath) < 1 {
 				return nil, expectedNonZero(psWatchTarget)

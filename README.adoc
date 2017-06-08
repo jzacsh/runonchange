@@ -9,6 +9,3 @@ $ go get github.com/jzacsh/runonchange
 ----
 
 NOTE: this is a port {frombash}[from bash] to Golang.
-
-.TODO
-. fix bug with `-c[lobber]` flag introduced in `295d761b6d450be9`

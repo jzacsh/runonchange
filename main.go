@@ -381,10 +381,10 @@ func main() {
 		}
 	}
 
-	run.maybeRun(true /*msgStdout*/)
 	fmt.Printf("%s `%s`\n",
 		color.HiGreenString("Watching"),
 		strings.Join(run.WatchTargets, ", "))
+	run.maybeRun(true /*msgStdout*/)
 
 	kills := make(chan os.Signal, 1)
 	signal.Notify(kills, os.Interrupt)

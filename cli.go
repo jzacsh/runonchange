@@ -61,6 +61,14 @@ func parseFilePattern(pattern string) (*regexp.Regexp, *parseError) {
 	return match, nil
 }
 
+func (d *runDirective) setDefaultTargets(tcount int) {
+	if tcount > 0 {
+		return
+	}
+
+	d.WatchTargets = []string{"./"}
+}
+
 func parseCli() (*runDirective, *parseError) {
 	args := os.Args[1:]
 	if len(args) < 1 {
@@ -103,14 +111,9 @@ func parseCli() (*runDirective, *parseError) {
 	}
 	directive.Shell = shell
 
-	defer func(d *runDirective) {
-		if len(d.WatchTargets) > 0 {
-			return
-		}
-
-		d.WatchTargets = []string{"./"}
-	}(&directive)
-
+	trgtCount := 0
+	ptrnCount := 0
+	defer directive.setDefaultTargets(trgtCount)
 	if len(args) == 1 {
 		return &directive, nil
 	}
@@ -118,8 +121,6 @@ func parseCli() (*runDirective, *parseError) {
 	optionals := args[1:]
 	directive.Patterns = make([]matcher, len(optionals))
 	directive.WatchTargets = make([]string, len(optionals))
-	trgtCount := 0
-	ptrnCount := 0
 	for i := 0; i < len(optionals); i++ {
 		arg := optionals[i]
 		switch arg {

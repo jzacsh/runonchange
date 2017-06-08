@@ -381,8 +381,13 @@ func main() {
 		}
 	}
 
-	fmt.Printf("%s `%s`\n",
+	var clobberMode string
+	if run.Features[flgClobberCommands] {
+		clobberMode = fmt.Sprintf(" (in %s mode)", color.RedString("clobber"))
+	}
+	fmt.Printf("%s%s `%s`\n",
 		color.HiGreenString("Watching"),
+		clobberMode,
 		strings.Join(run.WatchTargets, ", "))
 	run.maybeRun(true /*msgStdout*/)
 

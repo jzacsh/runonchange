@@ -5,6 +5,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
 	"sync"
 	"time"
@@ -48,6 +49,7 @@ type runDirective struct {
 	RunMux  sync.Mutex
 	Cmd     *exec.Cmd
 	Birth   chan os.Process
+	Kills   chan os.Signal
 	Living  *os.Process
 	Death   chan error
 	LastFin time.Time
@@ -96,5 +98,7 @@ func main() {
 	// for SIGINT, below
 	go run.maybeRun(true /*msgStdout*/)
 
-	run.waitForKill()
+	signal.Notify(run.Kills, os.Interrupt)
+
+	<-make(chan bool) // hang main
 }

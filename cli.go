@@ -124,6 +124,7 @@ func parseCli() (*runDirective, *parseError) {
 		Command:      cmd,
 		Features:     make(map[featureFlag]bool),
 		WatchTargets: []string{"./"},
+		Kills:        make(chan os.Signal, 1),
 	}
 	directive.Features[flgAutoIgnore] = true // TODO encode as "default" somewhere
 

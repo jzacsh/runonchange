@@ -40,9 +40,17 @@ func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
 
 func (run *runDirective) runSync(stdOut bool) (bool, error) {
 	run.execAsync(stdOut)
-	e := <-run.Death // block
-	close(run.Birth)
-	return true, e
+	defer close(run.Birth)
+	select {
+	case p := <-run.Birth:
+		run.Living = &p // record birth for any early interrupts
+	case e := <-run.Death:
+		return true, e // block until normal death
+	case sig := <-run.Kills:
+		return true, fmt.Errorf("interrupted: %v", sig)
+		// be ready for early interrupts
+	}
+	return true, nil
 }
 
 // Tries to kill any existant COMMANDs still running
@@ -55,6 +63,7 @@ func (run *runDirective) cleanupExistant(wait bool) (existed bool, fail error) {
 		return
 	}
 
+	fmt.Fprintf(os.Stderr, " PGID=%d... ", run.Living.Pid)
 	if fail = syscall.Kill(-run.Living.Pid, syscall.SIGKILL); fail != nil {
 		fmt.Fprintf(os.Stderr,
 			"failed to kill exec's pgroup[%d]: %s\n",
@@ -64,6 +73,7 @@ func (run *runDirective) cleanupExistant(wait bool) (existed bool, fail error) {
 
 	if wait {
 		// TODO(zacsh) utilize os.Process.Wait() method
+		// eg:   s, e := run.Living.Wait()
 		<-run.Death
 	}
 	return
@@ -75,12 +85,12 @@ func (run *runDirective) runAsync(stdOut bool) bool {
 	}
 
 	go run.execAsync(stdOut)
+	defer close(run.Birth)
 	select {
 	case p := <-run.Birth:
 		run.Living = &p
-		close(run.Birth)
-		return true
 	}
+	return true
 }
 
 func (run *runDirective) execAsync(msgStdout bool) {
@@ -174,6 +184,8 @@ func (run *runDirective) watchFSEvents(
 func (run *runDirective) handleFSEvents(in chan fsnotify.Event) {
 	for {
 		select {
+		case sig := <-run.Kills:
+			run.handleInterrupt(sig)
 		case <-run.Death:
 			run.Living = nil
 			if !run.Features[flgClobberCommands] {

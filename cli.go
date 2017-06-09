@@ -24,11 +24,11 @@ type parseError struct {
 }
 
 func (e parseError) Error() string {
-	return fmt.Sprintf("parse: %s: %s", parseStageStr(e.Stage), e.Message)
+	return fmt.Sprintf("parse: %v: %s", e.Stage, e.Message)
 }
 
-func parseStageStr(stage parseStage) string {
-	switch stage {
+func (stage *parseStage) String() string {
+	switch *stage {
 	case psNumArgs:
 		return "arg count"
 	case psHelp:
@@ -40,13 +40,54 @@ func parseStageStr(stage parseStage) string {
 	case psFilePattern:
 		return "FILE_PATTERN"
 	}
-	panic(fmt.Sprintf("unexpected parseStage found, '%d'", int(stage)))
+	panic(fmt.Sprintf("unexpected parseStage found, '%d'", int(*stage)))
+}
+
+func usage() string {
+	return fmt.Sprintf(`Runs a command everytime some filesystem events happen.
+  Usage:  COMMAND -c  [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
+
+  If -c is passed, then long-running COMMAND will be killed when newer
+  triggering events are received.
+
+  Regular expressions can be used to match against files whose events have been
+  as described by the next two flags:
+
+  -i FILE_PATTERN: only run COMMAND if match is not made (invert/ignore)
+  -r FILE_PATTERN: only run COMMAND if match is made
+
+    This program watches filesystem events. Thus, when an event occurs, there
+    is an associated file that causes that event. FILE_PATTERN tries to match
+    that file's basename to FILE_PATTERN. The result of that match is as
+    described by the flag preceding FILE_PATTERN, explained above.
+
+    Valid FILE_PATTERN strings are those accepted by:
+      https://golang.org/pkg/regexp/#Compile
+
+  DIR_TO_WATCH defaults to just one: the current working directory. Multiple
+  directories can be passed.
+`)
+}
+
+func die(reason exitReason, e error) {
+	var reasonStr string
+	switch reason {
+	case exCommandline:
+		reasonStr = "usage"
+	case exWatcher:
+		reasonStr = "watcher"
+	case exFsevent:
+		reasonStr = "event"
+	}
+
+	fmt.Fprintf(os.Stderr, "%s error: %s\n", reasonStr, e)
+	os.Exit(int(reason))
 }
 
 func expectedNonZero(stage parseStage) *parseError {
 	return &parseError{
 		Stage:   stage,
-		Message: fmt.Sprintf("expected non-zero %s as argument", parseStageStr(stage)),
+		Message: fmt.Sprintf("expected non-zero %v as argument", stage),
 	}
 }
 

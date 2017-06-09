@@ -391,7 +391,10 @@ func main() {
 		color.HiGreenString("Watching"),
 		clobberMode,
 		strings.Join(run.WatchTargets, ", "))
-	run.maybeRun(true /*msgStdout*/)
+
+	// must be async regardless of clobber-mode, else we won't be able to watch
+	// for SIGINT, below
+	go run.maybeRun(true /*msgStdout*/)
 
 	kills := make(chan os.Signal, 1)
 	signal.Notify(kills, os.Interrupt)

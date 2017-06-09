@@ -117,7 +117,7 @@ func (run *runDirective) execAsync(msgStdout bool) {
 	}()
 
 	for {
-		if run.Cmd != nil && run.Cmd.Process != nil {
+		if run.Cmd.Process != nil {
 			run.Birth <- *run.Cmd.Process
 			break
 		}

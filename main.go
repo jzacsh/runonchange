@@ -400,13 +400,13 @@ func main() {
 	signal.Notify(kills, os.Interrupt)
 	for sig := range kills {
 		fmt.Fprintf(os.Stderr, "\nCaught %v (%d); Cleaning up... ", sig, sig)
-		ex := 0
+		var ex int
+		msg := "Done"
 		if _, e := run.cleanupExistant(false /*wait*/); e != nil {
 			ex = 1
-			fmt.Fprintf(os.Stderr, "Failed: %v\n", e)
-		} else {
-			fmt.Fprintf(os.Stderr, "Done\n")
+			msg = fmt.Sprintf("Failed: %v", e)
 		}
+		fmt.Fprintf(os.Stderr, "%s\n", msg)
 		os.Exit(ex)
 	}
 }

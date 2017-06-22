@@ -34,9 +34,9 @@ func (run *runDirective) maybeRun(
 	run.LastFin = time.Time{}
 
 	if stdOut {
-		msg := fmt.Sprintf("startup\n")
+		msg := fmt.Sprintf("startup")
 		if event != nil {
-			msg = fmt.Sprintf("%s on %s\n", event.Op, event.Name)
+			msg = fmt.Sprintf("%s on %s", event.Op, event.Name)
 		}
 		fmt.Printf("\n%s %s ...\n",
 			color.YellowString("handling"),

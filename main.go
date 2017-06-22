@@ -96,7 +96,7 @@ func main() {
 
 	// must be async regardless of clobber-mode, else we won't be able to watch
 	// for SIGINT, below
-	go run.maybeRun(true /*msgStdout*/)
+	go run.maybeRun(nil /*event*/, true /*msgStdout*/)
 
 	signal.Notify(run.Kills, os.Interrupt)
 

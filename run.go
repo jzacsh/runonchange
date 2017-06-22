@@ -19,7 +19,8 @@ func (m *matcher) String() string {
 	return fmt.Sprintf("[%s]: %v", status, *m.Expr)
 }
 
-func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
+func (run *runDirective) maybeRun(
+	event *fsnotify.Event, stdOut bool) (bool, error) {
 	run.RunMux.Lock()
 	defer run.RunMux.Unlock()
 
@@ -31,6 +32,17 @@ func (run *runDirective) maybeRun(stdOut bool) (bool, error) {
 	run.Death = make(chan error, 1)
 	run.LastRun = time.Now()
 	run.LastFin = time.Time{}
+
+	if stdOut {
+		msg := fmt.Sprintf("startup\n")
+		if event != nil {
+			msg = fmt.Sprintf("%s on %s\n", event.Op, event.Name)
+		}
+		fmt.Printf("\n%s %s ...\n",
+			color.YellowString("handling"),
+			msg)
+	}
+
 	if run.Features[flgClobberCommands] {
 		return run.runAsync(stdOut), nil
 	} else {
@@ -195,8 +207,8 @@ func (run *runDirective) handleFSEvents(in chan fsnotify.Event) {
 				"\t%s: death was unprovoked\n",
 				color.New(color.Bold, color.FgBlue).Sprintf("warning"))
 
-		case <-in:
-			if ran, _ := run.maybeRun(true /*msgStdout*/); !ran {
+		case ev := <-in:
+			if ran, _ := run.maybeRun(&ev, true /*msgStdout*/); !ran {
 				fmt.Fprintf(os.Stderr, ".")
 			}
 		}

@@ -9,6 +9,3 @@ $ go get github.com/jzacsh/runonchange
 ----
 
 NOTE: this is a port {frombash}[from bash] to Golang.
-
-.TODO
-. Despite leaving off `-c`, some half-baked attempt to kill still occurs

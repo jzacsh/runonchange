@@ -208,7 +208,7 @@ func (run *runDirective) handleFSEvents(in chan fsnotify.Event) {
 				color.New(color.Bold, color.FgBlue).Sprintf("warning"))
 
 		case ev := <-in:
-			if !run.Features[flgClobberCommands] {
+			if run.Living != nil && !run.Features[flgClobberCommands] {
 				continue
 			}
 

@@ -13,6 +13,7 @@ type parseStage int
 const (
 	psNumArgs parseStage = iota
 	psHelp
+	psInvalidFlag
 	psCommand
 	psWatchTarget
 	psFilePattern
@@ -24,7 +25,7 @@ type parseError struct {
 }
 
 func (e parseError) Error() string {
-	return fmt.Sprintf("parse: %v: %s", e.Stage, e.Message)
+	return fmt.Sprintf("parser: %s: %s", e.Stage.String(), e.Message)
 }
 
 func (stage *parseStage) String() string {
@@ -33,6 +34,8 @@ func (stage *parseStage) String() string {
 		return "arg count"
 	case psHelp:
 		return "help"
+	case psInvalidFlag:
+		return "invalid flag"
 	case psCommand:
 		return "COMMAND"
 	case psWatchTarget:
@@ -47,7 +50,7 @@ func usage() string {
 	return fmt.Sprintf(
 		`Runs COMMAND everytime filesystem events happen under DIR_TO_WATCH.
 
-  Usage:  COMMAND [-cR] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
+  Usage:  COMMAND [-cdR] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 
   Description:
     This program watches filesystem events under DIR_TO_WATCH. When an event
@@ -64,6 +67,8 @@ func usage() string {
     DIR_TO_WATCH arguments must be the last on the commandline.
 
   Flags:
+    -d: indicates debugging output should be printed.
+
     -R: indicates a recursive watch should be established under DIR_TO_WATCH.
     That is: COMMAND will be triggered by more than just file events of
     immediate children to DIR_TO_WATCH.
@@ -98,7 +103,7 @@ func die(reason exitReason, e error) {
 		reasonStr = "event"
 	}
 
-	fmt.Fprintf(os.Stderr, "%s error: %s\n", reasonStr, e)
+	fmt.Fprintf(os.Stderr, "%s error: %s\n", reasonStr, e.Error())
 	os.Exit(int(reason))
 }
 
@@ -120,31 +125,35 @@ func parseFilePattern(pattern string) (*regexp.Regexp, *parseError) {
 	return match, nil
 }
 
-func parseCli() (*runDirective, *parseError) {
-	args := os.Args[1:]
-	if len(args) < 1 {
-		return nil, &parseError{
-			Stage:   psNumArgs,
-			Message: "at least COMMAND argument needed",
+func validateDirective(d *runDirective) *parseError {
+	if len(d.Command) < 1 {
+		return &parseError{Stage: psCommand, Message: ""}
+	}
+
+	if len(d.WatchTargets) < 1 {
+		return &parseError{Stage: psWatchTarget, Message: "No DIR_TO_WATCH set"}
+	}
+
+	for _, t := range d.WatchTargets {
+		if len(t) > 0 {
+			return nil
 		}
 	}
-
-	cmd := strings.TrimSpace(args[0])
-	if len(cmd) < 1 {
-		return nil, expectedNonZero(psCommand)
+	return &parseError{
+		Stage:   psWatchTarget,
+		Message: "No non-empty DIR_TO_WATCH set",
 	}
+}
 
-	if cmd == "-h" || cmd == "h" || cmd == "--help" || cmd == "help" {
-		return nil, &parseError{Stage: psHelp}
-	}
-
+func buildBaseDirective() (*runDirective, *parseError) {
 	directive := runDirective{
-		Command:      cmd,
 		Features:     make(map[featureFlag]bool),
-		WatchTargets: []string{"./"},
+		WatchTargets: make([]string, len(os.Args)),
 		Kills:        make(chan os.Signal, 1),
+		Patterns:     make([]matcher, len(os.Args)-2 /*at least drop: exec name, COMMAND*/),
 	}
 	directive.Features[flgAutoIgnore] = true // TODO encode as "default" somewhere
+	directive.WatchTargets[0] = "./"
 
 	shell := os.Getenv("SHELL")
 	if len(shell) < 1 {
@@ -153,7 +162,6 @@ func parseCli() (*runDirective, *parseError) {
 			Message: "$SHELL env variable required",
 		}
 	}
-
 	if _, e := os.Stat(shell); e != nil {
 		// we expect shell to be a path name, per:
 		//   http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08
@@ -163,33 +171,52 @@ func parseCli() (*runDirective, *parseError) {
 		}
 	}
 	directive.Shell = shell
+	return &directive, nil
+}
 
-	if len(args) == 1 {
-		return &directive, nil
+func parseCli() (*runDirective, *parseError) {
+	args := os.Args[1:]
+	if len(args) < 1 {
+		return nil, &parseError{
+			Stage:   psNumArgs,
+			Message: "at least COMMAND argument needed",
+		}
 	}
 
-	optionals := args[1:]
-	directive.Patterns = make([]matcher, len(optionals))
+	directive, e := buildBaseDirective()
+	if e != nil {
+		return nil, e
+	}
+
 	trgtCount := 0
 	ptrnCount := 0
-	for i := 0; i < len(optionals); i++ {
-		arg := optionals[i]
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		switch arg {
+		case "-d":
+			directive.Features[flgDebugOutput] = true
+
 		case "-c":
 			directive.Features[flgClobberCommands] = true
+
 		case "-R":
 			directive.Features[flgRecursiveWatch] = true
+
+		case "-h", "h", "--help", "help":
+			return nil, &parseError{Stage: psHelp}
+
 		case "-i":
 			fallthrough
 		case "-r":
 			var m matcher
 			if arg == "-i" {
+				// TODO(zacsh) double-check this works; seems like buggy `case` usage...
 				m.IsIgnore = true
 			}
 
 			i++
 			ptrnCount++
-			ptrnStr := optionals[i]
+			ptrnStr := args[i] // TODO(zacsh) remove this variable
 			ptrn, e := parseFilePattern(ptrnStr)
 			if e != nil {
 				return nil, e
@@ -197,11 +224,24 @@ func parseCli() (*runDirective, *parseError) {
 
 			m.Expr = ptrn
 			directive.Patterns[ptrnCount-1] = m
+
+			// positional args: COMMAND, [DIR_TO_WATCH, ...]
 		default:
-			if trgtCount == 0 {
-				// overwrite default if we've been given any explicitly
-				directive.WatchTargets = make([]string, len(optionals))
+			if arg[0] == '-' {
+				return nil, &parseError{
+					Stage:   psInvalidFlag,
+					Message: fmt.Sprintf("got flag %s", arg),
+				}
 			}
+
+			if len(directive.Command) == 0 { // arg: COMMAND
+				directive.Command = strings.TrimSpace(args[i])
+				if len(directive.Command) < 1 {
+					return nil, expectedNonZero(psCommand)
+				}
+				continue // done with COMMAND
+			}
+			// arg: [DIR_TO_WATCH, ...]
 
 			watchTargetPath := strings.TrimSpace(arg)
 			if len(watchTargetPath) < 1 {
@@ -235,9 +275,15 @@ func parseCli() (*runDirective, *parseError) {
 		directive.Patterns = directive.Patterns[:ptrnCount] // slice off excess
 	}
 
-	if trgtCount != 0 {
+	if trgtCount == 0 {
+		directive.WatchTargets = directive.WatchTargets[0:1] // default target
+	} else {
 		directive.WatchTargets = directive.WatchTargets[:trgtCount] // slice off excess
 	}
 
-	return &directive, nil
+	if e := validateDirective(directive); e != nil {
+		return nil, e
+	}
+
+	return directive, nil
 }

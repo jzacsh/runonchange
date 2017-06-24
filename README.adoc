@@ -8,4 +8,8 @@ Runs an arbitrary command when some filesystem even changes with given filepath(
 $ go get github.com/jzacsh/runonchange
 ----
 
+.TODO
+. warn/panic if -r or -i will cause problems and we know it, just while
+establishing DIR_TO_WATCH fsnotify watches.
+
 NOTE: this is a port {frombash}[from bash] to Golang.

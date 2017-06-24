@@ -11,5 +11,7 @@ $ go get github.com/jzacsh/runonchange
 .TODO
 . warn/panic if -r or -i will cause problems and we know it, just while
 establishing DIR_TO_WATCH fsnotify watches.
+. feature: **recursive** watch (rather than globbing annoyance)
+. feature: **wait** interval flag; currently hardcoded as `defaultWaitTime`
 
 NOTE: this is a port {frombash}[from bash] to Golang.

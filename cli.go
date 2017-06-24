@@ -45,7 +45,7 @@ func (stage *parseStage) String() string {
 
 func usage() string {
 	return fmt.Sprintf(
-`Runs COMMAND everytime filesystem events happen under DIR_TO_WATCH.
+		`Runs COMMAND everytime filesystem events happen under DIR_TO_WATCH.
 
   Usage:  COMMAND [-c] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 

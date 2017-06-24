@@ -59,6 +59,8 @@ func (flg featureFlag) String() string {
 	switch flg {
 	case flgAutoIgnore:
 		return "flgAutoIgnore"
+	case flgClobberCommands:
+		return "flgClobberCommands"
 	case flgDebugOutput:
 		return "flgDebugOutput"
 	default:

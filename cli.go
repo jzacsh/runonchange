@@ -44,28 +44,42 @@ func (stage *parseStage) String() string {
 }
 
 func usage() string {
-	return fmt.Sprintf(`Runs a command everytime some filesystem events happen.
-  Usage:  COMMAND -c  [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
+	return fmt.Sprintf(
+`Runs COMMAND everytime filesystem events happen under DIR_TO_WATCH.
 
-  If -c is passed, then long-running COMMAND will be killed when newer
-  triggering events are received.
+  Usage:  COMMAND [-c] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 
-  Regular expressions can be used to match against files whose events have been
-  as described by the next two flags:
+  Description:
+    This program watches filesystem events under DIR_TO_WATCH. When an event
+    occurs, there is an associated file that caused the event. Those are the
+    files, whose basename(1), FILE_PATTERNs are compared against. Except as
+    described by -r and -i, said file system events under DIR_TO_WATCH trigger
+    COMMAND to be run in the current $SHELL.
 
-  -i FILE_PATTERN: only run COMMAND if match is not made (invert/ignore)
-  -r FILE_PATTERN: only run COMMAND if match is made
+  Arguments:
+    DIR_TO_WATCH: indicates the directory whose ancestor file events should
+    trigger COMMAND to be run. Defaults to the current working directory.
+    Multiple directories can be passed.
 
-    This program watches filesystem events. Thus, when an event occurs, there
-    is an associated file that causes that event. FILE_PATTERN tries to match
-    that file's basename to FILE_PATTERN. The result of that match is as
-    described by the flag preceding FILE_PATTERN, explained above.
+    DIR_TO_WATCH arguments must be the last on the commandline.
 
-    Valid FILE_PATTERN strings are those accepted by:
-      https://golang.org/pkg/regexp/#Compile
+  Flags:
+    -c: indicates long-running COMMANDs should be killed when newer triggering
+    events are received.
 
-  DIR_TO_WATCH defaults to just one: the current working directory. Multiple
-  directories can be passed.
+    -i FILE_PATTERN: only run COMMAND if match is not made (invert/ignore)
+    -r FILE_PATTERN: only run COMMAND if match is made
+
+      FILE_PATTERN is a regular expression used to match against files whose
+      events are as described by the two flags: -i (ignore), -r (restrict).
+
+      If -i than events whose files match FILE_PATTERN will be ignored, thus not
+      triggering COMMAND when COMMAND would normally run.
+
+      If -r than only events whose files match FILE_PATTERN can trigger COMMAND.
+
+      Valid FILE_PATTERN strings are those accepted by:
+        https://golang.org/pkg/regexp/#Compile
 `)
 }
 

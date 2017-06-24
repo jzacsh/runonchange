@@ -48,6 +48,7 @@ type runDirective struct {
 	WatchTargets []string
 	Patterns     []matcher
 	Features     map[featureFlag]bool
+	WaitFor      time.Duration
 
 	LastRun time.Time
 	RunMux  sync.Mutex

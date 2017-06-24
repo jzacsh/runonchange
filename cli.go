@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type parseStage int
@@ -17,6 +19,7 @@ const (
 	psCommand
 	psWatchTarget
 	psFilePattern
+	psBadDuration
 )
 
 type parseError struct {
@@ -42,6 +45,8 @@ func (stage *parseStage) String() string {
 		return "DIR_TO_WATCH"
 	case psFilePattern:
 		return "FILE_PATTERN"
+	case psBadDuration:
+		return "WAIT_DURATION"
 	}
 	panic(fmt.Sprintf("unexpected parseStage found, '%d'", int(*stage)))
 }
@@ -50,7 +55,7 @@ func usage() string {
 	return fmt.Sprintf(
 		`Runs COMMAND everytime filesystem events happen under DIR_TO_WATCH.
 
-  Usage:  COMMAND [-cdR] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
+  Usage:  COMMAND [-cdR] [-w WAIT_DURATION] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 
   Description:
     This program watches filesystem events under DIR_TO_WATCH. When an event
@@ -76,6 +81,9 @@ func usage() string {
     -c: indicates long-running COMMANDs should be killed when newer triggering
     events are received.
 
+    -w WAIT_DURATION: indicates minimum seconds to wait after starting COMMAND,
+    before re-running COMMAND for new filesystem events. Defaults to %s.
+
     -i FILE_PATTERN: only run COMMAND if match is not made (invert/ignore)
     -r FILE_PATTERN: only run COMMAND if match is made
 
@@ -89,7 +97,7 @@ func usage() string {
 
       Valid FILE_PATTERN strings are those accepted by:
         https://golang.org/pkg/regexp/#Compile
-`)
+`, defaultWaitTime)
 }
 
 func die(reason exitReason, e error) {
@@ -151,6 +159,7 @@ func buildBaseDirective() (*runDirective, *parseError) {
 		WatchTargets: make([]string, len(os.Args)),
 		Kills:        make(chan os.Signal, 1),
 		Patterns:     make([]matcher, len(os.Args)-2 /*at least drop: exec name, COMMAND*/),
+		WaitFor:      defaultWaitTime,
 	}
 	directive.Features[flgAutoIgnore] = true // TODO encode as "default" somewhere
 	directive.WatchTargets[0] = "./"
@@ -205,6 +214,21 @@ func parseCli() (*runDirective, *parseError) {
 		case "-h", "h", "--help", "help":
 			return nil, &parseError{Stage: psHelp}
 
+		case "-w":
+			i++
+			if len(args) == i {
+				return nil, &parseError{
+					Stage:   psBadDuration,
+					Message: fmt.Sprintf("no pattern provided to arg #%d, '%s'", i, arg),
+				}
+			}
+
+			waitFor, e := strconv.Atoi(args[i])
+			if e != nil {
+				return nil, &parseError{Stage: psBadDuration, Message: e.Error()}
+			}
+			directive.WaitFor = time.Duration(waitFor) * time.Second
+
 		case "-i":
 			fallthrough
 		case "-r":
@@ -215,6 +239,13 @@ func parseCli() (*runDirective, *parseError) {
 			}
 
 			i++
+			if len(args) == i {
+				return nil, &parseError{
+					Stage:   psFilePattern,
+					Message: fmt.Sprintf("no pattern provided to arg #%d, '%s'", i, arg),
+				}
+			}
+
 			ptrnCount++
 			ptrnStr := args[i] // TODO(zacsh) remove this variable
 			ptrn, e := parseFilePattern(ptrnStr)

@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/fsnotify/fsnotify"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall" // TODO(zacsh) important to use x/syscall/unix explicitly?
 	"time"
+
+	"github.com/fatih/color"
+	"github.com/fsnotify/fsnotify"
 )
 
 func (m *matcher) String() string {
@@ -24,7 +25,7 @@ func (run *runDirective) maybeRun(
 	run.RunMux.Lock()
 	defer run.RunMux.Unlock()
 
-	if run.isRecent(defaultWaitTime) {
+	if run.isRecent() {
 		return false, nil
 	}
 
@@ -136,7 +137,8 @@ func (run *runDirective) execAsync(msgStdout bool) {
 	}
 }
 
-func (run *runDirective) isRecent(since time.Duration) bool {
+func (run *runDirective) isRecent() bool {
+	since := run.WaitFor
 	if run.Features[flgClobberCommands] {
 		since *= 2
 	}

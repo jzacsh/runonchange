@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/fsnotify/fsnotify"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 func (c *runDirective) debugStr() string {
@@ -37,11 +38,13 @@ func (c *runDirective) debugStr() string {
   run.WatchTargets' Name()s:  [%s]
   run.FilePatterns:           [%s]
   run.Shell:                  "%s"
+  run.WaitFor:                 %s
   run.Features:                %s
   `, c.Command,
 		fmt.Sprintf("\n\t%s\n\t", strings.Join(c.WatchTargets, ",\n\t")),
 		matchStr,
 		c.Shell,
+		c.WaitFor,
 		features)
 }
 

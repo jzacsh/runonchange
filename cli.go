@@ -47,7 +47,7 @@ func usage() string {
 	return fmt.Sprintf(
 		`Runs COMMAND everytime filesystem events happen under DIR_TO_WATCH.
 
-  Usage:  COMMAND [-c] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
+  Usage:  COMMAND [-cR] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 
   Description:
     This program watches filesystem events under DIR_TO_WATCH. When an event
@@ -64,6 +64,10 @@ func usage() string {
     DIR_TO_WATCH arguments must be the last on the commandline.
 
   Flags:
+    -R: indicates a recursive watch should be established under DIR_TO_WATCH.
+    That is: COMMAND will be triggered by more than just file events of
+    immediate children to DIR_TO_WATCH.
+
     -c: indicates long-running COMMANDs should be killed when newer triggering
     events are received.
 
@@ -173,6 +177,8 @@ func parseCli() (*runDirective, *parseError) {
 		switch arg {
 		case "-c":
 			directive.Features[flgClobberCommands] = true
+		case "-R":
+			directive.Features[flgRecursiveWatch] = true
 		case "-i":
 			fallthrough
 		case "-r":

@@ -2,24 +2,42 @@ package main
 
 import (
 	"fmt"
-	"github.com/fatih/color"
+	"os"
+	"path/filepath"
+
 	"github.com/fsnotify/fsnotify"
-	"strings"
 )
 
-func (run *runDirective) watch(watcher *fsnotify.Watcher) {
-	for _, t := range run.WatchTargets {
-		if err := watcher.Add(t); err != nil {
-			die(exWatcher, err)
+func (run *runDirective) watch(watcher *fsnotify.Watcher) (int, error) {
+	count := 0
+	recursiveWalkHandler := func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			return nil
 		}
+
+		if run.Features[flgDebugOutput] {
+			fmt.Fprintf(os.Stderr, "[debug] w: %s\n", path)
+		}
+
+		count++
+		return watcher.Add(path)
 	}
 
-	var clobberMode string
-	if run.Features[flgClobberCommands] {
-		clobberMode = fmt.Sprintf(" (in %s mode)", color.RedString("clobber"))
+	for _, t := range run.WatchTargets {
+		if run.Features[flgRecursiveWatch] {
+			if e := filepath.Walk(t, recursiveWalkHandler); e != nil {
+				return count, e
+			}
+		} else {
+			if run.Features[flgDebugOutput] {
+				fmt.Fprintf(os.Stderr, "[debug] w: %s\n", t)
+			}
+
+			count++
+			if e := watcher.Add(t); e != nil {
+				return count, e
+			}
+		}
 	}
-	fmt.Printf("%s%s `%s`\n",
-		color.HiGreenString("Watching"),
-		clobberMode,
-		strings.Join(run.WatchTargets, ", "))
+	return count, nil
 }

@@ -2,13 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/fsnotify/fsnotify"
 	"os"
 	"os/exec"
 	"os/signal"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
+	"github.com/fsnotify/fsnotify"
 )
 
 const defaultWaitTime time.Duration = 2 * time.Second
@@ -23,6 +26,7 @@ const (
 	//   https://stackoverflow.com/q/10300835/287374
 	flgDebugOutput
 	flgClobberCommands
+	flgRecursiveWatch
 )
 
 type exitReason int
@@ -61,11 +65,35 @@ func (flg featureFlag) String() string {
 		return "flgAutoIgnore"
 	case flgClobberCommands:
 		return "flgClobberCommands"
+	case flgRecursiveWatch:
+		return "flgRecursiveWatch"
 	case flgDebugOutput:
 		return "flgDebugOutput"
 	default:
 		panic(fmt.Sprintf("unexpected flag, '%d'", int(flg)))
 	}
+}
+
+func (run *runDirective) reportEstablishedWatches(numWatchedDirs int) {
+	var recursiveMsg string
+	if run.Features[flgRecursiveWatch] {
+		var recurseCount string
+		if numWatchedDirs > len(run.WatchTargets) {
+			recurseCount = fmt.Sprintf("[+%d]", numWatchedDirs-len(run.WatchTargets))
+		}
+		recursiveMsg = fmt.Sprintf(
+			"%s%s ", color.HiRedString("recursively"), recurseCount)
+	}
+
+	var clobberMode string
+	if run.Features[flgClobberCommands] {
+		clobberMode = fmt.Sprintf(" (in %s mode)", color.RedString("clobber"))
+	}
+	fmt.Printf("%s%s%s:\n\t%s\n",
+		recursiveMsg,
+		color.HiGreenString("watching"),
+		clobberMode,
+		strings.Join(run.WatchTargets, ", "))
 }
 
 func main() {
@@ -94,7 +122,11 @@ func main() {
 	go run.watchFSEvents(watcher, haveActionableEvent)
 	go run.handleFSEvents(haveActionableEvent)
 
-	run.watch(watcher)
+	count, e := run.watch(watcher)
+	if e != nil {
+		die(exWatcher, e)
+	}
+	run.reportEstablishedWatches(count)
 
 	// must be async regardless of clobber-mode, else we won't be able to watch
 	// for SIGINT, below

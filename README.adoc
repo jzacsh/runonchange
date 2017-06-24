@@ -12,5 +12,6 @@ $ go get github.com/jzacsh/runonchange
 . warn/panic if -r or -i will cause problems and we know it, just while
 establishing DIR_TO_WATCH fsnotify watches.
 . feature: **wait** interval flag; currently hardcoded as `defaultWaitTime`
+. flag parsing: `-cR` should be detected as separate flags, `c` and `R`
 
 NOTE: this is a port {frombash}[from bash] to Golang.

@@ -47,26 +47,14 @@ func (c *runDirective) debugStr() string {
 		features)
 }
 
-func (run *runDirective) findEventSubPath(e fsnotify.Event) string {
-	for _, target := range run.WatchTargets {
-		if strings.HasPrefix(e.Name, target) {
-			return e.Name[len(target):]
-		}
-	}
-	panic(fmt.Sprintf(
-		"event's path root not under any watches:\n\tevent: %v\n\ttargets: [\n\t\t%s\n\t]\n",
-		e, strings.Join(run.WatchTargets, ",\n\t\t")))
-}
-
 func (run *runDirective) isRejected(chain []matcher, e fsnotify.Event) bool {
 	if len(chain) == 0 {
 		return false
 	}
 
-	comparePath := run.findEventSubPath(e)
 	for i, p := range chain {
 		if p.IsIgnore {
-			if p.Expr.MatchString(comparePath) {
+			if p.Expr.MatchString(e.Name) {
 				if run.Features[flgDebugOutput] {
 					fmt.Fprintf(os.Stderr, "IGNR[%d]\n", i)
 				} else {
@@ -75,7 +63,7 @@ func (run *runDirective) isRejected(chain []matcher, e fsnotify.Event) bool {
 				return true
 			}
 		} else {
-			if !p.Expr.MatchString(comparePath) {
+			if !p.Expr.MatchString(e.Name) {
 				if run.Features[flgDebugOutput] {
 					fmt.Fprintf(os.Stderr, "MISS[%d]\n", i)
 				} else {

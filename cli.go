@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -288,15 +287,8 @@ func parseCli() (*runDirective, *parseError) {
 					Message: fmt.Sprintf("must be a directory"),
 				}
 			}
-			watchPath, e := filepath.Abs(watchTargetPath)
-			if e != nil {
-				return nil, &parseError{
-					Stage:   psWatchTarget,
-					Message: fmt.Sprintf("expanding path: %s", e),
-				}
-			}
 			trgtCount++
-			directive.WatchTargets[trgtCount-1] = watchPath
+			directive.WatchTargets[trgtCount-1] = watchTargetPath
 		}
 	}
 

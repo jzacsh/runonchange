@@ -1,8 +1,6 @@
 = Run Command On Changes
 :frombash: https://github.com/jzacsh/bin/blob/f38719fdc6795/share/runonchange
 :locref: https://github.com/jzacsh/runonchange/blob/
-:helpdocBasename: {locref}ccf8f30aa14407/cli.go#L63
-:basenameSrc: {locref}ccf8f30aa14407/directive.go#L58
 
 Runs an arbitrary command when some filesystem even changes with given filepath(s)
 
@@ -11,9 +9,5 @@ Runs an arbitrary command when some filesystem even changes with given filepath(
 $ go get github.com/jzacsh/runonchange
 ----
 
-.TODO
-.  compare `FILE_PATTERN` against something like the path that would be produced
-by `find DIR_TO_WATCH -type f -printf '%P\n'`, {helpdocBasename}[rather than]
-{basenameSrc}[basename]
 
 NOTE: this is a port {frombash}[from bash] to Golang.

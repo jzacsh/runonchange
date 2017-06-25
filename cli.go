@@ -59,9 +59,9 @@ func usage() string {
   Description:
     This program watches filesystem events under DIR_TO_WATCH. When an event
     occurs, there is an associated file that caused the event. Those are the
-    files, whose basename(1), FILE_PATTERNs are compared against. Except as
-    described by -r and -i, said file system events under DIR_TO_WATCH trigger
-    COMMAND to be run in the current $SHELL.
+    files whose paths FILE_PATTERNs are compared against. Except as described by
+    -r and -i, said file system events under DIR_TO_WATCH trigger COMMAND to be
+    run in the current $SHELL.
 
   Arguments:
     DIR_TO_WATCH: indicates the directory whose ancestor file events should

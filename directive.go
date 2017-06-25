@@ -53,8 +53,8 @@ func (run *runDirective) isRejected(chain []matcher, e fsnotify.Event) bool {
 		return false
 	}
 
+	comparePath := filepath.Base(e.Name)
 	for i, p := range chain {
-		comparePath := filepath.Base(e.Name)
 		if p.IsIgnore {
 			if p.Expr.MatchString(comparePath) {
 				if run.Features[flgDebugOutput] {

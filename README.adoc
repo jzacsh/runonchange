@@ -58,4 +58,27 @@ Runs COMMAND everytime filesystem events happen under a DIR_TO_WATCH.
         https://golang.org/pkg/regexp/#Compile
 ----
 
+== gotchas
+
+.pesky `bad interpreter: Text file busy`
+So you're in terminal a, like:
+`$ $EDITOR ./myscript.sh`
+... and you're editing, saving, editing, saving, etc.
+
+.and meanwhile, `runonchange` is acting funny:
+----
+$ runonchange ./myscript.sh # terminal b
+
+# terminal b: meanwhile, *sometimes* you get:
+   `bash: ./myscript.sh: /bin/bash: bad interpreter: Text file busy``
+----
+The solution is: terminal b needs to give your bash script a moment on disk
+before we ask bash to start parsing the file again:
+`$ runonchange 'sleep 0.1; ./myscript.sh'`
+Why? I've no clue... Would love to hear from someone on this...
+
+== other stuff
+
 NOTE: this is a port {frombash}[from bash] to Golang.
+
+Also, see `./LICENSE` for copyright.

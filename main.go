@@ -97,6 +97,13 @@ func (run *runDirective) reportEstablishedWatches(numWatchedDirs int) {
 		strings.Join(run.WatchTargets, ", "))
 }
 
+func cleanup(watcher *fsnotify.Watcher) {
+	e := watcher.Close()
+	if e != nil {
+		fmt.Fprintf(os.Stderr, "closing watchers: %s\n", e)
+	}
+}
+
 func main() {
 	run, perr := parseCli()
 	if perr != nil {
@@ -118,7 +125,7 @@ func main() {
 	if e != nil {
 		die(exCommandline, e)
 	}
-	defer watcher.Close()
+	defer cleanup(watcher)
 	haveActionableEvent := make(chan fsnotify.Event)
 	go run.watchFSEvents(watcher, haveActionableEvent)
 	go run.handleFSEvents(haveActionableEvent)

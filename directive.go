@@ -54,8 +54,9 @@ func (run *runDirective) isRejected(chain []matcher, e fsnotify.Event) bool {
 	}
 
 	for i, p := range chain {
+		comparePath := filepath.Base(e.Name)
 		if p.IsIgnore {
-			if p.Expr.MatchString(filepath.Base(e.Name)) {
+			if p.Expr.MatchString(comparePath) {
 				if run.Features[flgDebugOutput] {
 					fmt.Fprintf(os.Stderr, "IGNR[%d]\n", i)
 				} else {
@@ -64,7 +65,7 @@ func (run *runDirective) isRejected(chain []matcher, e fsnotify.Event) bool {
 				return true
 			}
 		} else {
-			if !p.Expr.MatchString(filepath.Base(e.Name)) {
+			if !p.Expr.MatchString(comparePath) {
 				if run.Features[flgDebugOutput] {
 					fmt.Fprintf(os.Stderr, "MISS[%d]\n", i)
 				} else {

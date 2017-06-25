@@ -15,10 +15,6 @@ func (run *runDirective) watch(watcher *fsnotify.Watcher) (int, error) {
 			return nil
 		}
 
-		if run.Features[flgDebugOutput] {
-			fmt.Fprintf(os.Stderr, "[debug] w: %s\n", path)
-		}
-
 		count++
 		return watcher.Add(path)
 	}

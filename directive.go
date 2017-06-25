@@ -34,13 +34,14 @@ func (c *runDirective) debugStr() string {
 
 	return fmt.Sprintf(`
   run.Command:                "%s"
-  run.WatchTargets' Name()s:  [%s]
+  run.WatchTargets' Name()s:  [%s
+  ]
   run.FilePatterns:           [%s]
   run.Shell:                  "%s"
   run.WaitFor:                 %s
   run.Features:                %s
   `, c.Command,
-		fmt.Sprintf("\n\t%s\n\t", strings.Join(c.WatchTargets, ",\n\t")),
+		fmt.Sprintf("\n\t%s", strings.Join(c.WatchTargets, ",\n\t")),
 		matchStr,
 		c.Shell,
 		c.WaitFor,

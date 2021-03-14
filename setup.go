@@ -5,9 +5,15 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-// Entry point for application
+// Entry point for application to start runonchange logic, once preferences and
+// settings have been taken care of (parsing CLI flags, basic validation, OS signal
+// mgmt) upstream by main.
 //
-// TODO: outline what we do at a high level
+// runonchange logic we need to setup:
+// - worker to watch and filter Filesystem events
+// - worker to handle filtered events and invoke COMMAND
+// - configuration of filesystem event library
+// - kick off an initial, sample COMMAND invocation
 func (run *runDirective) setup() error {
 	watcher, e := fsnotify.NewWatcher()
 	if e != nil {

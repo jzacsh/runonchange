@@ -57,37 +57,45 @@ func usage() string {
   Usage:  COMMAND [-cdR] [-w WAIT_DURATION] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 
   Description:
-    This program watches filesystem events under DIR_TO_WATCH. When an event
-    occurs, there is an associated file that caused the event. Those are the
-    files whose paths FILE_PATTERNs are compared against. Except as described by
-    -r and -i, said file system events under DIR_TO_WATCH trigger COMMAND to be
-    run in the current $SHELL.
+	 This program watches filesystem events under DIR_TO_WATCH. When an event
+	 occurs, there is an associated file the event originated at. Those are the
+	 files whose paths FILE_PATTERNs are compared against.
+
+	 Generally all file system events under DIR_TO_WATCH (with exceptions as
+	 documented for -r and -i and -R) will trigger COMMAND. COMMAND will be run
+	 in the current $SHELL.
 
   Arguments:
     DIR_TO_WATCH: indicates the directory whose ancestor file events should
     trigger COMMAND to be run. Defaults to the current working directory.
-    Multiple directories can be passed.
+	  Multiple directories can be passed, so DIR_TO_WATCH arguments must be the
+	  last on the commandline.
 
-    DIR_TO_WATCH arguments must be the last on the commandline.
-
-  Flags:
+  General options:
     -d: indicates debugging output should be printed.
+
+    -c: indicates long-running COMMANDs should be killed when newer triggering
+    events are received. This is particularly useful if COMMAND is a non-exiting
+	  process, like an HTTP server, or perhaps a test suite that takes minutes to
+	  run.
+
+    -w WAIT_DURATION: indicates minimum seconds to wait after starting COMMAND,
+	  before re-running COMMAND again for new filesystem events. Defaults to %s.
+
+  Filesystem event configuration options:
 
     -R: indicates a recursive watch should be established under DIR_TO_WATCH.
     That is: COMMAND will be triggered by more than just file events of
     immediate children to DIR_TO_WATCH.
 
-    -c: indicates long-running COMMANDs should be killed when newer triggering
-    events are received.
-
-    -w WAIT_DURATION: indicates minimum seconds to wait after starting COMMAND,
-    before re-running COMMAND for new filesystem events. Defaults to %s.
+	  File matching options:
 
     -i FILE_PATTERN: only run COMMAND if match is not made (invert/ignore)
     -r FILE_PATTERN: only run COMMAND if match is made
 
-      FILE_PATTERN is a regular expression used to match against files whose
-      events are as described by the two flags: -i (ignore), -r (restrict).
+	  For both -i (ignore) and -r (restrict) the FILE_PATTERN value is a regular
+	  expression used to match against a file for which a filesystem events is
+	  has caused us to consider running COMMAND. To clarify:
 
       If -i than events whose files match FILE_PATTERN will be ignored, thus not
       triggering COMMAND when COMMAND would normally run.

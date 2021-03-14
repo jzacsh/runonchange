@@ -1,6 +1,9 @@
 = Run Command On Changes
 :frombash: https://github.com/jzacsh/bin/blob/f38719fdc6795/share/runonchange
 :locref: https://github.com/jzacsh/runonchange/blob/
+:gomodules: https://blog.golang.org/migrating-to-go-modules
+
+== Overview
 
 Runs an arbitrary command when some filesystem even changes with given filepath(s)
 
@@ -58,7 +61,7 @@ Runs COMMAND everytime filesystem events happen under a DIR_TO_WATCH.
         https://golang.org/pkg/regexp/#Compile
 ----
 
-== gotchas
+=== gotchas
 
 .pesky `bad interpreter: Text file busy`
 So you're in terminal a, like:
@@ -77,8 +80,22 @@ before we ask bash to start parsing the file again:
 `$ runonchange 'sleep 0.1; ./myscript.sh'`
 Why? I've no clue... Would love to hear from someone on this...
 
-== other stuff
+== development
 
-NOTE: this is a port {frombash}[from bash] to Golang.
+This codebase uses {gomodules}[golang's modules system]. tl;dr is:
+
+----
+$ go buld ./... # to recompile your changes
+# now a new ./runonchange exec exists
+
+$ go test ./... # to run unit tests
+$ go mod tidy   # to update dependency changes you've made
+----
+
+j/k, there's no unit tests. feel free to add some!
+
+=== origin & copying
+
+This is a port {frombash}[from an old bash script of mine] to Golang.
 
 Also, see `./LICENSE` for copyright.

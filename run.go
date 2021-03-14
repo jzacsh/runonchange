@@ -206,7 +206,7 @@ func (run *runDirective) handleFSEvents(in chan fsnotify.Event) {
 				continue
 			}
 			fmt.Fprintf(os.Stderr,
-				"\t%s: death was unprovoked\n",
+				"\t%s: command died on its own\n",
 				color.New(color.Bold, color.FgBlue).Sprintf("warning"))
 
 		case ev := <-in:

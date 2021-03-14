@@ -130,11 +130,11 @@ func main() {
 	go run.watchFSEvents(watcher, haveActionableEvent)
 	go run.handleFSEvents(haveActionableEvent)
 
-	count, e := run.watch(watcher)
+	dirCount, e := run.registerDirectoriesToWatch(watcher)
 	if e != nil {
 		die(exWatcher, e)
 	}
-	run.reportEstablishedWatches(count)
+	run.reportEstablishedWatches(dirCount)
 
 	// must be async regardless of clobber-mode, else we won't be able to watch
 	// for SIGINT, below

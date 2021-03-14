@@ -8,7 +8,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-func (run *runDirective) watch(watcher *fsnotify.Watcher) (int, error) {
+func (run *runDirective) registerDirectoriesToWatch(watcher *fsnotify.Watcher) (int, error) {
 	count := 0
 	recursiveWalkHandler := func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {

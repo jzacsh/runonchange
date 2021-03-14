@@ -51,7 +51,6 @@ func (run *runDirective) cleanupExistant(wait bool) (existed bool, fail error) {
 		fmt.Fprintf(os.Stderr,
 			"failed to kill exec's pgroup[%d]: %s\n",
 			run.Living.Pid, fail)
-		// TODO(zacsh) fix `Living = nil` line being the wrong place
 		return
 	}
 

@@ -96,7 +96,7 @@ func (run *runDirective) execAsync(msgStdout bool) {
 
 	go func() {
 		e := run.Cmd.Run()
-		// run.Living = nil // TODO(zacsh) SHOULD go here
+		run.Living = nil
 		run.LastFin = time.Now()
 		if msgStdout {
 			run.messageDeath(e)
@@ -177,7 +177,6 @@ func (run *runDirective) handleFSEvents(in chan fsnotify.Event) {
 		case sig := <-run.Kills:
 			run.gracefulCleanup(sig) // Shutdown all of runonchange
 		case <-run.Death:
-			run.Living = nil // TODO(zacsh) shoudl NOT go here
 			if !run.Features[flgClobberCommands] {
 				continue
 			}

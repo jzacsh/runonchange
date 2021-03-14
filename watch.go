@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"os"
 	"path/filepath"
-
-	"github.com/fsnotify/fsnotify"
+	"strings"
 )
 
-func (run *runDirective) registerDirectoriesToWatch(watcher *fsnotify.Watcher) (int, error) {
+func (run *runDirective) registerDirectoriesToWatch() (int, error) {
 	count := 0
 	recursiveWalkHandler := func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
@@ -16,7 +16,7 @@ func (run *runDirective) registerDirectoriesToWatch(watcher *fsnotify.Watcher) (
 		}
 
 		count++
-		return watcher.Add(path)
+		return run.fsWatcher.Add(path)
 	}
 
 	for _, t := range run.WatchTargets {
@@ -30,10 +30,32 @@ func (run *runDirective) registerDirectoriesToWatch(watcher *fsnotify.Watcher) (
 			}
 
 			count++
-			if e := watcher.Add(t); e != nil {
+			if e := run.fsWatcher.Add(t); e != nil {
 				return count, e
 			}
 		}
 	}
 	return count, nil
+}
+
+func (run *runDirective) reportEstablishedWatches(numWatchedDirs int) {
+	var recursiveMsg string
+	if run.Features[flgRecursiveWatch] {
+		var recurseCount string
+		if numWatchedDirs > len(run.WatchTargets) {
+			recurseCount = fmt.Sprintf("[+%d]", numWatchedDirs-len(run.WatchTargets))
+		}
+		recursiveMsg = fmt.Sprintf(
+			"%s%s ", color.HiRedString("recursively"), recurseCount)
+	}
+
+	var clobberMode string
+	if run.Features[flgClobberCommands] {
+		clobberMode = fmt.Sprintf(" (in %s mode)", color.RedString("clobber"))
+	}
+	fmt.Printf("%s%s%s:\n\t%s\n",
+		recursiveMsg,
+		color.HiGreenString("watching"),
+		clobberMode,
+		strings.Join(run.WatchTargets, ", "))
 }

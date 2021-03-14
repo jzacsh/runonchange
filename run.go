@@ -66,32 +66,6 @@ func (run *runDirective) runSync(stdOut bool) (bool, error) {
 	return true, nil
 }
 
-// Tries to kill any existant COMMANDs still running
-// returns indication of whether attempt was made and its errors:
-//   true if any existed (ie: any cleanup was necessary)
-//   error if cleanup failed
-func (run *runDirective) cleanupExistant(wait bool) (existed bool, fail error) {
-	existed = run.Living != nil
-	if !existed {
-		return
-	}
-
-	fmt.Fprintf(os.Stderr, " PGID=%d... ", run.Living.Pid)
-	if fail = syscall.Kill(-run.Living.Pid, syscall.SIGKILL); fail != nil {
-		fmt.Fprintf(os.Stderr,
-			"failed to kill exec's pgroup[%d]: %s\n",
-			run.Living.Pid, fail)
-		return
-	}
-
-	if wait {
-		// TODO(zacsh) utilize os.Process.Wait() method
-		// eg:   s, e := run.Living.Wait()
-		<-run.Death
-	}
-	return
-}
-
 func (run *runDirective) runAsync(stdOut bool) bool {
 	if _, e := run.cleanupExistant(true /*wait*/); e != nil {
 		return false
@@ -122,6 +96,7 @@ func (run *runDirective) execAsync(msgStdout bool) {
 
 	go func() {
 		e := run.Cmd.Run()
+		// run.Living = nil // TODO(zacsh) SHOULD go here
 		run.LastFin = time.Now()
 		if msgStdout {
 			run.messageDeath(e)
@@ -167,13 +142,12 @@ func (run *runDirective) messageDeath(e error) {
 		maybeErr)
 }
 
-func (run *runDirective) watchFSEvents(
-	watcher *fsnotify.Watcher,
-	out chan fsnotify.Event) {
+// Watches for - and emits to `out` - any applicable filesystem events.
+func (run *runDirective) watchFSEvents(out chan fsnotify.Event) {
 
 	for {
 		select {
-		case e := <-watcher.Events:
+		case e := <-run.fsWatcher.Events:
 			if run.Features[flgDebugOutput] {
 				fmt.Fprintf(os.Stderr, "[debug] [%s] %s\n", e.Op.String(), e.Name)
 			}
@@ -189,19 +163,21 @@ func (run *runDirective) watchFSEvents(
 			}
 
 			out <- e
-		case err := <-watcher.Errors:
+		case err := <-run.fsWatcher.Errors:
 			die(exFsevent, err)
 		}
 	}
 }
 
+// Given applicable filesystem events on `in`, runs COMMAND (per --help) for
+// each if appropriate, and exits runonchange is shutting down.
 func (run *runDirective) handleFSEvents(in chan fsnotify.Event) {
 	for {
 		select {
 		case sig := <-run.Kills:
-			run.handleInterrupt(sig)
+			run.gracefulCleanup(sig) // Shutdown all of runonchange
 		case <-run.Death:
-			run.Living = nil
+			run.Living = nil // TODO(zacsh) shoudl NOT go here
 			if !run.Features[flgClobberCommands] {
 				continue
 			}

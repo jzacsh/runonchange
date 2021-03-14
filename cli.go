@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const defaultWaitTime time.Duration = 2 * time.Second
+
 type parseStage int
 
 const (

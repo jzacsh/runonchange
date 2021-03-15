@@ -59,7 +59,7 @@ func (run *runDirective) isRejected(chain []matcher, e fsnotify.Event) bool {
 				if run.Features[flgDebugOutput] {
 					fmt.Fprintf(os.Stderr, "IGNR[%d]\n", i)
 				} else {
-					fmt.Fprintf(os.Stderr, "-")
+					run.tick(tickDropPatternIgnore)
 				}
 				return true
 			}
@@ -68,7 +68,7 @@ func (run *runDirective) isRejected(chain []matcher, e fsnotify.Event) bool {
 				if run.Features[flgDebugOutput] {
 					fmt.Fprintf(os.Stderr, "MISS[%d]\n", i)
 				} else {
-					fmt.Fprintf(os.Stderr, "_")
+					run.tick(tickDropPatternRestric)
 				}
 				return true
 			}

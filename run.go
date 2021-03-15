@@ -45,34 +45,16 @@ func (run *runDirective) maybeRun(
 	}
 
 	if run.Features[flgClobberCommands] {
-		return run.runAsync(stdOut), nil
-	} else {
-		return run.runSync(stdOut)
+		// Try to actually clobber first, if needed (`_` signal)
+		if _, e := run.cleanupExtant(true /*wait*/); e != nil {
+			return false, fmt.Errorf("trying clobber of last run: %v", e)
+		}
 	}
-}
-
-func (run *runDirective) runSync(stdOut bool) (bool, error) {
-	run.execAsync(stdOut)
-	defer close(run.Birth)
-	select {
-	case p := <-run.Birth:
-		run.Living = &p // record birth for any early interrupts
-	case e := <-run.Death:
-		return true, e // block until normal death
-	case sig := <-run.Kills:
-		return true, fmt.Errorf("interrupted: %v", sig)
-		// be ready for early interrupts
-	}
+	run.runAsync(stdOut)
 	return true, nil
 }
 
 func (run *runDirective) runAsync(stdOut bool) bool {
-	if _, e := run.cleanupExtant(true /*wait*/); e != nil {
-		// TODO(zacsh) this silent failure could be really frustrating; it would
-		// result in seeing a "." emit, but no clobber actually occur.
-		return false
-	}
-
 	go run.execAsync(stdOut)
 	defer close(run.Birth)
 	select {
@@ -106,12 +88,17 @@ func (run *runDirective) execAsync(msgStdout bool) {
 		run.Death <- e
 	}()
 
-	for {
-		if run.Cmd.Process != nil {
-			run.Birth <- *run.Cmd.Process
-			break
+	// TODO(zacsh) this worker is going to perform some needless thrashing;
+	// redesign things to get rid of this; in fact the majority of data in
+	// beahvior.go feel unnecessary (Birth, Death, Living, etc.)
+	go func() {
+		for {
+			if run.Cmd.Process != nil {
+				run.Birth <- *run.Cmd.Process
+				break
+			}
 		}
-	}
+	}()
 }
 
 func (run *runDirective) isRecent() bool {
@@ -130,6 +117,7 @@ func (run *runDirective) messageDeath(e error) {
 		maybeLn = "\n"
 	}
 
+	// Attempt to append a reason to the end of our summary
 	var maybeErr string
 	if e != nil {
 		maybeErr = fmt.Sprintf(
@@ -137,6 +125,7 @@ func (run *runDirective) messageDeath(e error) {
 			color.New(color.Bold, color.FgRed).Sprintf(e.Error()))
 	}
 
+	// Summarize death
 	fmt.Printf("%s%s in %v.%s\n",
 		maybeLn,
 		color.YellowString("done"),
@@ -188,11 +177,16 @@ func (run *runDirective) handleFSEvents(in chan fsnotify.Event) {
 
 		case ev := <-in:
 			if run.Living != nil && !run.Features[flgClobberCommands] {
+				run.tick(tickDropStillRunning)
 				continue
 			}
 
-			if ran, _ := run.maybeRun(&ev, true /*msgStdout*/); !ran {
-				fmt.Fprintf(os.Stderr, ".")
+			ran, err := run.maybeRun(&ev, true /*msgStdout*/)
+			if !ran {
+				run.tick(tickClobberUnnecessary)
+			}
+			if err != nil {
+				run.tick(tickClobberFailed)
 			}
 		}
 	}

@@ -106,6 +106,28 @@ func usage() string {
 
       Valid FILE_PATTERN strings are those accepted by:
         https://golang.org/pkg/regexp/#Compile
+
+  Output while running:
+
+	  Generally the output strives to be self-explanatory and minimal. Minimal so
+	  as to stay not compete with the output you likely really care about: the
+	  output of COMMAND. Nevertheless some signasl are emitted (eg: when starting
+	  a new COMMAND invocation, so  that COMMAND's own output doesn't get
+	  confusing).
+
+   Ticks as filesystem event indicators:
+
+	  There is however output that while minimal, is certainly not self
+	  explanatory and that's the small tick-marks used to indicate a filesystem
+    event has been caught. The tickmarks are documented by their corresponding
+    enum values here:
+       https://github.com/jzacsh/runonchange/blob/master/tick.go
+
+    The tickmark behavior is worth explaining. It's a desired feature to let the
+    user know that runonchange isn't just broken, in case COMMAND is not being
+    re-run. Of course that's no guarantee that it's not indeed frozen, but often
+    it is sufficient signal to prove nothing is broken, and in fact you're
+    receiving the behavior you want.
 `, defaultWaitTime)
 }
 

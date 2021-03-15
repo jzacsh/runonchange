@@ -12,7 +12,13 @@ Runs an arbitrary command when some filesystem even changes with given filepath(
 $ go get github.com/jzacsh/runonchange
 ----
 
-.usage
+.usage example
+----
+# Leave this running in a terminal, and go work on your source code elsewhere
+$ runonchange 'make clean build && python3 -m http.server' -c -R
+----
+
+.for more, see its help output
 ----
 $ runonchange help
 Runs COMMAND everytime filesystem events happen under a DIR_TO_WATCH.

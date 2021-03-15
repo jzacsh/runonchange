@@ -22,8 +22,12 @@ func (run *runDirective) setup() error {
 	run.fsWatcher = watcher
 
 	fsEvents := make(chan fsnotify.Event)
-	go run.watchFSEvents(fsEvents)
-	go run.handleFSEvents(fsEvents)
+	go func() {
+		run.watchFSEvents(fsEvents)
+	}()
+	go func() {
+		run.handleFSEvents(fsEvents)
+	}()
 
 	dirCount, e := run.registerDirectoriesToWatch()
 	if e != nil {

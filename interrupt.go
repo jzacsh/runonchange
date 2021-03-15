@@ -26,7 +26,7 @@ func (run *runDirective) gracefulCleanup(sig os.Signal) {
 	}
 
 	fmt.Fprintf(os.Stderr, " [graceful shutdown]: cleaning up `COMMAND`s...")
-	found, e := run.cleanupExistant(false /*wait*/)
+	found, e := run.cleanupExtant(false /*wait*/)
 	fmt.Fprintf(os.Stderr, "%s\n", explainAttempt(e, !found /*wasNoop*/))
 
 	fmt.Fprintf(os.Stderr, " [graceful shutdown]: cleaning up filesystem watchers...")
@@ -36,11 +36,12 @@ func (run *runDirective) gracefulCleanup(sig os.Signal) {
 	os.Exit(exitStatus)
 }
 
-// Tries to kill any existant COMMANDs still running
-// returns indication of whether attempt was made and its errors:
+// Tries to kill any extant COMMAND invocations still running
+//
+// Returns an indication of whether attempt was made and its errors:
 //   true if any existed (ie: any cleanup was necessary)
 //   error if cleanup failed
-func (run *runDirective) cleanupExistant(wait bool) (existed bool, fail error) {
+func (run *runDirective) cleanupExtant(wait bool) (existed bool, fail error) {
 	existed = run.Living != nil
 	if !existed {
 		return

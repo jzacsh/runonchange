@@ -67,7 +67,9 @@ func (run *runDirective) runSync(stdOut bool) (bool, error) {
 }
 
 func (run *runDirective) runAsync(stdOut bool) bool {
-	if _, e := run.cleanupExistant(true /*wait*/); e != nil {
+	if _, e := run.cleanupExtant(true /*wait*/); e != nil {
+		// TODO(zacsh) this silent failure could be really frustrating; it would
+		// result in seeing a "." emit, but no clobber actually occur.
 		return false
 	}
 

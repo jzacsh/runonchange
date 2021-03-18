@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,7 +10,7 @@ import (
 func main() {
 	run, perr := parseCli()
 	if perr != nil {
-		if perr.Stage == psHelp {
+		if errors.Is(perr, errHelpRequested) {
 			fmt.Printf(usage())
 			os.Exit(0)
 		}

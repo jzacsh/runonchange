@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -23,16 +24,44 @@ const (
 	psBadDuration
 )
 
+var (
+	errHelpRequested       = errors.New("local help docs requested")
+	errEmptyArgumentFound  = errors.New("found empty-strng argument")
+	errMissingCommand      = errors.New("missing COMMAND")
+	errMissingTargets      = errors.New("No DIR_TO_WATCH set")
+	errTargetsEmptyStrings = errors.New("No non-empty DIR_TO_WATCH set")
+	errMissingShellEnv     = errors.New("$SHELL env variable required")
+)
+
+// golang error representing a cli parsing issue.
 type parseError struct {
-	Stage   parseStage
-	Message string
+	Stage    parseStage
+	errState error
+
+	// Optional error as propogated up to us from a dependency
+	Err error
 }
 
 func (e parseError) Error() string {
-	return fmt.Sprintf("parser: %s: %s", e.Stage.String(), e.Message)
+	if e.errState == nil {
+		e.errState = fmt.Errorf("parser %s: %w", e.Stage.String(), e.Err)
+	}
+	return e.errState.Error()
+}
+
+func (e parseError) Unwrap() error {
+	return e.errState
+}
+
+func (e parseError) Is(target error) bool {
+	return e.errState == target
+
+	// we'll let golang do an Is() against our child error by calling our Unwrap()
+	// internally
 }
 
 func (stage *parseStage) String() string {
+
 	switch *stage {
 	case psNumArgs:
 		return "arg count"
@@ -131,25 +160,10 @@ func usage() string {
 `, defaultWaitTime)
 }
 
-func die(reason exitReason, e error) {
-	var reasonStr string
-	switch reason {
-	case exCommandline:
-		reasonStr = "usage"
-	case exWatcher:
-		reasonStr = "watcher"
-	case exFsevent:
-		reasonStr = "event"
-	}
-
-	fmt.Fprintf(os.Stderr, "%s error: %s\n", reasonStr, e.Error())
-	os.Exit(int(reason))
-}
-
 func expectedNonZero(stage parseStage) *parseError {
 	return &parseError{
-		Stage:   stage,
-		Message: fmt.Sprintf("expected non-zero %v as argument", stage),
+		Stage: stage,
+		Err:   fmt.Errorf("expected only non-zero %s values", stage.String()),
 	}
 }
 
@@ -157,8 +171,8 @@ func parseFilePattern(pattern string) (*regexp.Regexp, *parseError) {
 	match, e := regexp.Compile(pattern)
 	if e != nil {
 		return nil, &parseError{
-			Stage:   psFilePattern,
-			Message: fmt.Sprintf("pattern, '%s': %s", pattern, e),
+			Stage: psFilePattern,
+			Err:   fmt.Errorf("pattern, '%s': %w", pattern, e),
 		}
 	}
 	return match, nil
@@ -166,11 +180,11 @@ func parseFilePattern(pattern string) (*regexp.Regexp, *parseError) {
 
 func validateDirective(d *runDirective) *parseError {
 	if len(d.Command) < 1 {
-		return &parseError{Stage: psCommand, Message: ""}
+		return &parseError{Stage: psCommand, Err: errMissingCommand}
 	}
 
 	if len(d.WatchTargets) < 1 {
-		return &parseError{Stage: psWatchTarget, Message: "No DIR_TO_WATCH set"}
+		return &parseError{Stage: psWatchTarget, Err: errMissingTargets}
 	}
 
 	for _, t := range d.WatchTargets {
@@ -179,8 +193,8 @@ func validateDirective(d *runDirective) *parseError {
 		}
 	}
 	return &parseError{
-		Stage:   psWatchTarget,
-		Message: "No non-empty DIR_TO_WATCH set",
+		Stage: psWatchTarget,
+		Err:   errTargetsEmptyStrings,
 	}
 }
 
@@ -198,28 +212,28 @@ func buildBaseDirective() (*runDirective, *parseError) {
 	shell := os.Getenv("SHELL")
 	if len(shell) < 1 {
 		return nil, &parseError{
-			Stage:   psCommand,
-			Message: "$SHELL env variable required",
+			Stage: psCommand,
+			Err:   errMissingShellEnv,
 		}
 	}
 	if _, e := os.Stat(shell); e != nil {
 		// we expect shell to be a path name, per:
 		//   http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08
 		return nil, &parseError{
-			Stage:   psCommand,
-			Message: fmt.Sprintf("$SHELL: %s", e),
+			Stage: psCommand,
+			Err:   fmt.Errorf("$SHELL: %w", e),
 		}
 	}
 	directive.Shell = shell
 	return &directive, nil
 }
 
-func parseCli() (*runDirective, *parseError) {
+func parseCli() (*runDirective, error) {
 	args := os.Args[1:]
 	if len(args) < 1 {
-		return nil, &parseError{
-			Stage:   psNumArgs,
-			Message: "at least COMMAND argument needed",
+		return nil, parseError{
+			Stage: psNumArgs,
+			Err:   errMissingCommand,
 		}
 	}
 
@@ -243,20 +257,23 @@ func parseCli() (*runDirective, *parseError) {
 			directive.Features[flgRecursiveWatch] = true
 
 		case "-h", "h", "--help", "help":
-			return nil, &parseError{Stage: psHelp}
+			return nil, parseError{Stage: psHelp, Err: errHelpRequested}
 
 		case "-w":
 			i++
 			if len(args) == i {
-				return nil, &parseError{
-					Stage:   psBadDuration,
-					Message: fmt.Sprintf("no pattern provided to arg #%d, '%s'", i, arg),
+				return nil, parseError{
+					Stage: psBadDuration,
+					Err:   fmt.Errorf("no pattern provided to arg #%d, '%s'", i, arg),
 				}
 			}
 
 			waitFor, e := strconv.Atoi(args[i])
 			if e != nil {
-				return nil, &parseError{Stage: psBadDuration, Message: e.Error()}
+				return nil, parseError{
+					Stage: psBadDuration,
+					Err:   fmt.Errorf("parsing -w duration: %w", e),
+				}
 			}
 			directive.WaitFor = time.Duration(waitFor) * time.Second
 
@@ -271,9 +288,9 @@ func parseCli() (*runDirective, *parseError) {
 
 			i++
 			if len(args) == i {
-				return nil, &parseError{
-					Stage:   psFilePattern,
-					Message: fmt.Sprintf("no pattern provided to arg #%d, '%s'", i, arg),
+				return nil, parseError{
+					Stage: psFilePattern,
+					Err:   fmt.Errorf("no pattern provided to arg #%d, '%s'", i, arg),
 				}
 			}
 
@@ -289,10 +306,16 @@ func parseCli() (*runDirective, *parseError) {
 
 			// positional args: COMMAND, [DIR_TO_WATCH, ...]
 		default:
+			if len(arg) == 0 {
+				return nil, parseError{
+					Stage: psInvalidFlag,
+					Err:   errEmptyArgumentFound,
+				}
+			}
 			if arg[0] == '-' {
-				return nil, &parseError{
-					Stage:   psInvalidFlag,
-					Message: fmt.Sprintf("got flag %s", arg),
+				return nil, parseError{
+					Stage: psInvalidFlag,
+					Err:   fmt.Errorf("got flag %s", arg),
 				}
 			}
 
@@ -311,12 +334,12 @@ func parseCli() (*runDirective, *parseError) {
 			}
 			watchTarget, e := os.Stat(watchTargetPath)
 			if e != nil {
-				return nil, &parseError{Stage: psWatchTarget, Message: e.Error()}
+				return nil, parseError{Stage: psWatchTarget, Err: e}
 			}
 			if !watchTarget.IsDir() {
-				return nil, &parseError{
-					Stage:   psWatchTarget,
-					Message: fmt.Sprintf("must be a directory"),
+				return nil, parseError{
+					Stage: psWatchTarget,
+					Err:   fmt.Errorf("target must be a directory, but got: %s", watchTargetPath),
 				}
 			}
 			trgtCount++

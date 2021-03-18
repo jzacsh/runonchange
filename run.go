@@ -5,12 +5,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"syscall" // TODO(zacsh) important to use x/syscall/unix explicitly?
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/fsnotify/fsnotify"
 )
+
+var magicFileRegexp *regexp.Regexp = regexp.MustCompile(`^(\.\w.*sw[a-z]|4913)$`)
+
+type matcher struct {
+	Expr     *regexp.Regexp
+	IsIgnore bool
+}
 
 func (m *matcher) String() string {
 	status := "RESTR"

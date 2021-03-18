@@ -4,15 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"regexp"
 )
-
-var magicFileRegexp *regexp.Regexp = regexp.MustCompile(`^(\.\w.*sw[a-z]|4913)$`)
-
-type matcher struct {
-	Expr     *regexp.Regexp
-	IsIgnore bool
-}
 
 func main() {
 	run, perr := parseCli()

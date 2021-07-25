@@ -71,7 +71,6 @@ func usage() string {
     touch(1) the file you're interested in events for, and you'll see debug
     printout of exactly what pattern matching occurs internally.
 
-
   Output while running:
 
     Generally the output strives to be self-explanatory and minimal. Minimal so

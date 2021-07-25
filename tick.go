@@ -34,5 +34,8 @@ func (t tickSignal) String() string {
 }
 
 func (run *runDirective) tick(signal tickSignal) {
+	if run.Features[flgQuiet] {
+		return
+	}
 	fmt.Fprintf(os.Stderr, "%s", signal)
 }

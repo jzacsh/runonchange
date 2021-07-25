@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const version string = "v0.2.1"
+const version string = "v0.3.0"
 
 const defaultWaitTime time.Duration = 2 * time.Second
 
@@ -32,6 +32,8 @@ func usage() string {
 
   General options:
     -d: indicates debugging output should be printed.
+
+    -q: quieter output about what runonchange is doing.
 
     -c: indicates long-running COMMANDs should be killed when newer triggering
     events are received. This is particularly useful if COMMAND is a non-exiting

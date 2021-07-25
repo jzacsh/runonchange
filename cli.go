@@ -102,6 +102,12 @@ func validateDirective(d *runDirective) *parseError {
 		return &parseError{Stage: psCommand, Err: errMissingCommand}
 	}
 
+	if d.Features[flgQuiet] && d.Features[flgDebugOutput] {
+		fmt.Fprintf(
+			os.Stderr,
+			"[debug] you asked for debug mode *and* quiet mode; that's weird, but I'm down... here we go\n")
+	}
+
 	if len(d.WatchTargets) < 1 {
 		return &parseError{Stage: psWatchTarget, Err: errMissingTargets}
 	}
@@ -174,6 +180,9 @@ func parseCli() (*runDirective, error) {
 
 		case "-R":
 			directive.Features[flgRecursiveWatch] = true
+
+		case "-q":
+			directive.Features[flgQuiet] = true
 
 		case "-h", "h", "--help", "help":
 			return nil, parseError{Stage: psHelp, errState: errHelpRequested}

@@ -22,6 +22,7 @@ const (
 	flgDebugOutput
 	flgClobberCommands
 	flgRecursiveWatch
+	flgQuiet
 )
 
 func (flg featureFlag) String() string {
@@ -32,6 +33,8 @@ func (flg featureFlag) String() string {
 		return "flgClobberCommands"
 	case flgRecursiveWatch:
 		return "flgRecursiveWatch"
+	case flgQuiet:
+		return "flgQuiet"
 	case flgDebugOutput:
 		return "flgDebugOutput"
 	default:

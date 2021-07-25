@@ -5,7 +5,8 @@ import (
 	"time"
 )
 
-const version string = "v0.3.0"
+// TODO figure out how to extract this from build environment (like git tags)
+const version string = "v0.3.3"
 
 const defaultWaitTime time.Duration = 2 * time.Second
 

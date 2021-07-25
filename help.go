@@ -16,19 +16,19 @@ func usage() string {
   Usage:  COMMAND [-qcdR] [-w WAIT_DURATION] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 
   Description:
-	 This program watches filesystem events under DIR_TO_WATCH. When an event
-	 occurs, there is an associated file the event originated at. Those are the
-	 files whose paths FILE_PATTERNs are compared against.
+   This program watches filesystem events under DIR_TO_WATCH. When an event
+   occurs, there is an associated file the event originated at. Those are the
+   files whose paths FILE_PATTERNs are compared against.
 
-	 Generally all file system events under DIR_TO_WATCH (with exceptions as
-	 documented for -r and -i and -R) will trigger COMMAND. COMMAND will be run
-	 in the current $SHELL.
+   Generally all file system events under DIR_TO_WATCH (with exceptions as
+   documented for -r and -i and -R) will trigger COMMAND. COMMAND will be run
+   in the current $SHELL.
 
   Arguments:
     DIR_TO_WATCH: indicates the directory whose ancestor file events should
     trigger COMMAND to be run. Defaults to the current working directory.
-	  Multiple directories can be passed, so DIR_TO_WATCH arguments must be the
-	  last on the commandline.
+    Multiple directories can be passed, so DIR_TO_WATCH arguments must be the
+    last on the commandline.
 
   General options:
     -d: indicates debugging output should be printed.
@@ -37,11 +37,11 @@ func usage() string {
 
     -c: indicates long-running COMMANDs should be killed when newer triggering
     events are received. This is particularly useful if COMMAND is a non-exiting
-	  process, like an HTTP server, or perhaps a test suite that takes minutes to
-	  run.
+    process, like an HTTP server, or perhaps a test suite that takes minutes to
+    run.
 
     -w WAIT_DURATION: indicates minimum seconds to wait after starting COMMAND,
-	  before re-running COMMAND again for new filesystem events. Defaults to %s.
+    before re-running COMMAND again for new filesystem events. Defaults to %s.
 
   Filesystem event configuration options:
 
@@ -49,14 +49,14 @@ func usage() string {
     That is: COMMAND will be triggered by more than just file events of
     immediate children to DIR_TO_WATCH.
 
-	  File matching options:
+    File matching options:
 
     -i FILE_PATTERN: only run COMMAND if match is not made (invert/ignore)
     -r FILE_PATTERN: only run COMMAND if match is made
 
-	  For both -i (ignore) and -r (restrict) the FILE_PATTERN value is a regular
-	  expression used to match against a file for which a filesystem events is
-	  has caused us to consider running COMMAND. To clarify:
+    For both -i (ignore) and -r (restrict) the FILE_PATTERN value is a regular
+    expression used to match against a file for which a filesystem events is
+    has caused us to consider running COMMAND. To clarify:
 
       If -i than events whose files match FILE_PATTERN will be ignored, thus not
       triggering COMMAND when COMMAND would normally run.
@@ -74,16 +74,16 @@ func usage() string {
 
   Output while running:
 
-	  Generally the output strives to be self-explanatory and minimal. Minimal so
-	  as to stay not compete with the output you likely really care about: the
-	  output of COMMAND. Nevertheless some signals are emitted (eg: when starting
-	  a new COMMAND invocation, so  that COMMAND's own output doesn't get
-	  confusing).
+    Generally the output strives to be self-explanatory and minimal. Minimal so
+    as to stay not compete with the output you likely really care about: the
+    output of COMMAND. Nevertheless some signals are emitted (eg: when starting
+    a new COMMAND invocation, so  that COMMAND's own output doesn't get
+    confusing).
 
    Ticks as filesystem event indicators:
 
-	  There is however output that while minimal, is certainly not self
-	  explanatory and that's the small tick-marks used to indicate a filesystem
+    There is however output that while minimal, is certainly not self
+    explanatory and that's the small tick-marks used to indicate a filesystem
     event has been caught. The tickmarks are documented by their corresponding
     enum values here:
        https://github.com/jzacsh/runonchange/blob/master/tick.go
@@ -95,6 +95,6 @@ func usage() string {
     receiving the behavior you want.
 
   Version %s
- 		 github.com/jzacsh/runonchange/releases/tag/%s
+      github.com/jzacsh/runonchange/releases/tag/%s
 `, defaultWaitTime, version, version)
 }

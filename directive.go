@@ -11,9 +11,9 @@ import (
 func (c *runDirective) debugStr() string {
 	matchStr := "n/a"
 	if len(c.Patterns) > 0 {
-		matchStr = fmt.Sprintf("'%v',", c.Patterns[0])
-		for _, p := range c.Patterns[1:] {
-			matchStr = fmt.Sprintf("%s '%v',", matchStr, p)
+		matchStr = ""
+		for _, p := range c.Patterns {
+			matchStr = fmt.Sprintf("%s %v,", matchStr, p)
 		}
 
 		matchStr = fmt.Sprintf(

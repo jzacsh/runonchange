@@ -20,12 +20,12 @@ type matcher struct {
 	IsIgnore bool
 }
 
-func (m *matcher) String() string {
+func (m matcher) String() string {
 	status := "RESTR"
 	if m.IsIgnore {
 		status = "IGNOR"
 	}
-	return fmt.Sprintf("[%s]: %v", status, *m.Expr)
+	return fmt.Sprintf("[%s]'%v'", status, m.Expr)
 }
 
 func (run *runDirective) maybeRun(

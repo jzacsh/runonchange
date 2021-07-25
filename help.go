@@ -13,7 +13,7 @@ func usage() string {
 	return fmt.Sprintf(
 		`Runs COMMAND everytime filesystem events happen under a DIR_TO_WATCH.
 
-  Usage:  COMMAND [-cdR] [-w WAIT_DURATION] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
+  Usage:  COMMAND [-qcdR] [-w WAIT_DURATION] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 
   Description:
 	 This program watches filesystem events under DIR_TO_WATCH. When an event
@@ -66,11 +66,17 @@ func usage() string {
       Valid FILE_PATTERN strings are those accepted by:
         https://golang.org/pkg/regexp/#Compile
 
+    The easiest way to debug your patterns is to see the strings they're being
+    matched against by simply doing a simple run but with -d flag passed, then
+    touch(1) the file you're interested in events for, and you'll see debug
+    printout of exactly what pattern matching occurs internally.
+
+
   Output while running:
 
 	  Generally the output strives to be self-explanatory and minimal. Minimal so
 	  as to stay not compete with the output you likely really care about: the
-	  output of COMMAND. Nevertheless some signasl are emitted (eg: when starting
+	  output of COMMAND. Nevertheless some signals are emitted (eg: when starting
 	  a new COMMAND invocation, so  that COMMAND's own output doesn't get
 	  confusing).
 

@@ -28,7 +28,7 @@ func (c *runDirective) debugStr() string {
 			if len(features) > 0 {
 				sep = ", "
 			}
-			features = fmt.Sprintf("%s%s%s", features, sep, k.String())
+			features = fmt.Sprintf("%s%s%s", features, sep, k)
 		}
 	}
 

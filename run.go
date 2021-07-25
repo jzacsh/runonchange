@@ -13,7 +13,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-var magicFileRegexp *regexp.Regexp = regexp.MustCompile(`^(\.\w.*sw[a-z]|4913)$`)
+// Default pattern we assume most every occassion should ignore; controlled via
+// flgNoDefaultIgnorePattern flag.
+var magicFileIgnoreRegexp *regexp.Regexp = regexp.MustCompile(`^(\.\w.*sw[a-z]|4913)$`)
 
 type matcher struct {
 	Expr     *regexp.Regexp
@@ -151,8 +153,8 @@ func (run *runDirective) watchFSEvents(out chan fsnotify.Event) {
 				fmt.Fprintf(os.Stderr, "[debug] [%s] %s\n", e.Op.String(), e.Name)
 			}
 
-			if run.Features[flgAutoIgnore] {
-				if magicFileRegexp.MatchString(filepath.Base(e.Name)) {
+			if !run.Features[flgNoDefaultIgnorePattern] {
+				if magicFileIgnoreRegexp.MatchString(filepath.Base(e.Name)) {
 					continue
 				}
 			}

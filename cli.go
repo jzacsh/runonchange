@@ -131,7 +131,6 @@ func buildBaseDirective() (*runDirective, *parseError) {
 		Patterns:     make([]matcher, len(os.Args)-2 /*at least drop: exec name, COMMAND*/),
 		WaitFor:      defaultWaitTime,
 	}
-	directive.Features[flgAutoIgnore] = true // TODO encode as "default" somewhere
 	directive.WatchTargets[0] = "./"
 
 	shell := os.Getenv("SHELL")
@@ -177,6 +176,9 @@ func parseCli() (*runDirective, error) {
 
 		case "-c":
 			directive.Features[flgClobberCommands] = true
+
+		case "-m":
+			directive.Features[flgNoDefaultIgnorePattern] = true
 
 		case "-R":
 			directive.Features[flgRecursiveWatch] = true

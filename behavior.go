@@ -16,7 +16,7 @@ import (
 type featureFlag int
 
 const (
-	flgAutoIgnore featureFlag = 1 + iota
+	flgNoDefaultIgnorePattern featureFlag = 1 + iota
 	// Particularly useful for VIM flury of events, see:
 	//   https://stackoverflow.com/q/10300835/287374
 	flgDebugOutput
@@ -27,8 +27,8 @@ const (
 
 func (flg featureFlag) String() string {
 	switch flg {
-	case flgAutoIgnore:
-		return "flgAutoIgnore"
+	case flgNoDefaultIgnorePattern:
+		return "flgNoDefaultIgnorePattern"
 	case flgClobberCommands:
 		return "flgClobberCommands"
 	case flgRecursiveWatch:

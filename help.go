@@ -6,7 +6,7 @@ import (
 )
 
 // TODO figure out how to extract this from build environment (like git tags)
-const version string = "v0.3.3"
+const version string = "v0.4.0"
 
 const defaultWaitTime time.Duration = 2 * time.Second
 
@@ -14,7 +14,7 @@ func usage() string {
 	return fmt.Sprintf(
 		`Runs COMMAND everytime filesystem events happen under a DIR_TO_WATCH.
 
-  Usage:  COMMAND [-qcdR] [-w WAIT_DURATION] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
+  Usage:  COMMAND [-mqcdR] [-w WAIT_DURATION] [-i|-r FILE_PATTERN] [DIR_TO_WATCH, ...]
 
   Description:
    This program watches filesystem events under DIR_TO_WATCH. When an event
@@ -43,6 +43,10 @@ func usage() string {
 
     -w WAIT_DURATION: indicates minimum seconds to wait after starting COMMAND,
     before re-running COMMAND again for new filesystem events. Defaults to %s.
+
+    -m: Disables the default behavior of ignoring some magic patterns you're
+    likely not to want (if not passed, then this program runs as if "-i
+    '%v'" was used).
 
   Filesystem event configuration options:
 
@@ -96,5 +100,9 @@ func usage() string {
 
   Version %s
       github.com/jzacsh/runonchange/releases/tag/%s
-`, defaultWaitTime, version, version)
+`,
+		defaultWaitTime,
+		magicFileIgnoreRegexp,
+		version,
+		version)
 }
